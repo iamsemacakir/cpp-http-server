@@ -1,7 +1,9 @@
+#include <chrono>
 #include <csignal>
 #include <cstdint>
+#include <cstdio>
+#include <cstdlib>
 #include <exception>
-#include <iostream>
 #include <optional>
 #include <stdexcept>
 #include <string>
@@ -9,6 +11,7 @@
 #include "error_pages.hpp"
 #include "http_request.hpp"
 #include "http_response.hpp"
+#include "logger.hpp"
 #include "request_reader.hpp"
 #include "router.hpp"
 #include "static_files.hpp"
@@ -26,6 +29,19 @@ std::uint16_t parse_port(int argc, char** argv) {
         throw std::out_of_range("port must be between 0 and 65535");
     }
     return static_cast<std::uint16_t>(port);
+}
+
+// LOG_LEVEL=debug|info|warn|error|off (default: info).
+void configure_logging() {
+    const char* value = std::getenv("LOG_LEVEL");
+    if (value == nullptr) {
+        return;
+    }
+    if (const auto level = http::log_level_from_string(value)) {
+        http::Logger::instance().set_level(*level);
+    } else {
+        http::log_warn("unknown LOG_LEVEL '", value, "', using info");
+    }
 }
 
 http::Router build_router(const http::StaticFiles& static_files) {
@@ -106,13 +122,16 @@ void send(http::Socket& client, http::HttpResponse response, bool head_only = fa
 
 void handle_connection(const http::Router& router, const http::ErrorPages& error_pages,
                        http::Socket& client) {
+    const std::string peer = client.peer_address();
     std::optional<http::HttpRequest> request;
     try {
         request = http::read_request(client);
     } catch (const http::RequestTooLarge& error) {
+        http::log_warn(peer, " request too large: ", error.what());
         send(client, http::HttpResponse::error(http::status::kPayloadTooLarge, error.what()));
         return;
     } catch (const http::ParseError& error) {
+        http::log_warn(peer, " bad request: ", error.what());
         send(client, http::HttpResponse::error(http::status::kBadRequest, error.what()));
         return;
     }
@@ -120,17 +139,24 @@ void handle_connection(const http::Router& router, const http::ErrorPages& error
         return;
     }
 
+    const auto started = std::chrono::steady_clock::now();
     http::HttpResponse response;
     try {
         response = router.route(*request);
     } catch (const std::exception& error) {
-        std::cerr << "handler error: " << error.what() << '\n';
+        http::log_error("handler error for ", request->target, ": ", error.what());
         response = http::HttpResponse::error(http::status::kInternalServerError);
     }
     error_pages.apply(*request, response);
 
-    std::cout << to_string(request->method) << ' ' << request->target << " -> "
-              << response.status() << '\n';
+    const std::chrono::duration<double, std::milli> elapsed =
+        std::chrono::steady_clock::now() - started;
+
+    // Access log: "127.0.0.1:51234 GET /index.html -> 200 (501 B, 0.21 ms)"
+    char duration[32];
+    std::snprintf(duration, sizeof(duration), "%.2f ms", elapsed.count());
+    http::log_info(peer, ' ', http::to_string(request->method), ' ', request->target, " -> ",
+                   response.status(), " (", response.body().size(), " B, ", duration, ')');
     send(client, std::move(response), request->method == http::Method::Head);
 }
 
@@ -138,6 +164,7 @@ void handle_connection(const http::Router& router, const http::ErrorPages& error
 
 int main(int argc, char** argv) {
     std::signal(SIGPIPE, SIG_IGN);
+    configure_logging();
 
     try {
         const http::StaticFiles static_files(argc >= 3 ? argv[2] : "public");
@@ -145,15 +172,15 @@ int main(int argc, char** argv) {
         const http::ErrorPages error_pages("errors");
         http::TcpServer server("0.0.0.0", parse_port(argc, argv));
         server.listen();
-        std::cout << http::kServerName << " v" << http::kServerVersion
-                  << " listening on http://localhost:" << server.port() << " ("
-                  << router.size() << " routes, serving " << static_files.root().string()
-                  << ")\n";
+        http::log_info(http::kServerName, " v", http::kServerVersion,
+                       " listening on http://localhost:", server.port(), " (", router.size(),
+                       " routes, serving ", static_files.root().string(), ", ",
+                       error_pages.template_count(), " error templates)");
         server.serve([&router, &error_pages](http::Socket& client) {
             handle_connection(router, error_pages, client);
         });
     } catch (const std::exception& error) {
-        std::cerr << "fatal: " << error.what() << '\n';
+        http::log_error("fatal: ", error.what());
         return 1;
     }
     return 0;

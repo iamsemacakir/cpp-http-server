@@ -1,9 +1,10 @@
 #include "tcp_server.hpp"
 
 #include <exception>
-#include <iostream>
 #include <system_error>
 #include <utility>
+
+#include "logger.hpp"
 
 namespace http {
 
@@ -28,14 +29,14 @@ void TcpServer::serve(const ConnectionHandler& handler) {
             if (!running_) {
                 break; // listener was closed by stop()
             }
-            std::cerr << "accept failed: " << error.what() << '\n';
+            log_warn("accept failed: ", error.what());
             continue;
         }
 
         try {
             handler(client);
         } catch (const std::exception& error) {
-            std::cerr << "connection error: " << error.what() << '\n';
+            log_warn("connection error: ", error.what());
         }
     }
 }

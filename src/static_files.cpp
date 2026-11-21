@@ -6,6 +6,7 @@
 #include <system_error>
 #include <utility>
 
+#include "logger.hpp"
 #include "mime.hpp"
 
 namespace http {
@@ -77,6 +78,7 @@ HttpResponse StaticFiles::serve(const HttpRequest& request) const {
     // request.path is already percent-decoded, so "%2e%2e" arrives as "..".
     const auto resolved = resolve(request.path);
     if (!resolved) {
+        log_debug("static: rejected unsafe path ", request.path);
         return forbidden();
     }
     fs::path target = *resolved;
@@ -115,6 +117,7 @@ HttpResponse StaticFiles::serve_file(const fs::path& file) const {
         throw std::runtime_error("failed to read " + file.string());
     }
 
+    log_debug("static: serving ", file.string(), " (", body.size(), " B)");
     HttpResponse response(status::kOk);
     response.set_body(std::move(body), std::string(mime_type(file.string())));
     return response;

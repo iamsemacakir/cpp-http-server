@@ -112,6 +112,26 @@ Templates live in `errors/` and are named after the status code
 without a template get a simple built-in page. Error responses that a
 handler builds itself (e.g. `/search` without `q`) are left untouched.
 
+## Logging
+
+Every request is written to an access log with a timestamp and level:
+
+```text
+2026-11-21 20:04:42.810 [INFO ] 127.0.0.1:49538 GET / -> 200 (501 B, 0.17 ms)
+2026-11-21 20:04:42.829 [ERROR] handler error for /error: demo failure from /error
+```
+
+`DEBUG`/`INFO` lines go to stdout, `WARN`/`ERROR` to stderr. Set the level
+with the `LOG_LEVEL` environment variable (`debug`, `info`, `warn`, `error`,
+`off`; default `info`):
+
+```bash
+LOG_LEVEL=debug ./build/http_server
+```
+
+In code, use the thread-safe helpers from `logger.hpp`:
+`http::log_info("served ", path, " in ", ms, " ms");`
+
 ## Project structure
 
 ```

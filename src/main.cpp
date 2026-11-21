@@ -60,6 +60,17 @@ http::Router build_router() {
         return HttpResponse::text(http::status::kOk, body);
     });
 
+    router.get("/users/:id", [](const HttpRequest& request) {
+        return HttpResponse::text(http::status::kOk,
+                                  "User #" + request.param("id").value_or("") + "\n");
+    });
+
+    router.get("/users/:id/posts/:post_id", [](const HttpRequest& request) {
+        return HttpResponse::text(http::status::kOk,
+                                  "Post #" + request.param("post_id").value_or("") +
+                                      " by user #" + request.param("id").value_or("") + "\n");
+    });
+
     router.post("/echo", [](const HttpRequest& request) {
         HttpResponse response(http::status::kOk);
         response.set_body(request.body,

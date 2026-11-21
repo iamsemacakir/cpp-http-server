@@ -38,6 +38,13 @@ struct HttpRequest {
     std::unordered_map<std::string, std::string> headers;
     std::string body;
 
+    // Path parameters captured by the router, e.g. {"id": "42"} for the
+    // route "/users/:id" matching "/users/42".
+    std::unordered_map<std::string, std::string> params;
+
+    // Value of a captured path parameter, if present.
+    std::optional<std::string> param(std::string_view name) const;
+
     // Case-insensitive header lookup.
     std::optional<std::string> header(std::string_view name) const;
 

@@ -7,7 +7,7 @@ Development log of the server, one step at a time.
 - [x] 02. RAII `Socket` wrapper class (create, close, move-only)
 - [x] 03. TCP server: bind, listen, accept loop returning a fixed response
 - [x] 04. `HttpRequest` model + request-line parser (method, path, version)
-- [ ] 05. Header parsing + reading the body via `Content-Length`
+- [x] 05. Header parsing + reading the body via `Content-Length`
 
 ## Milestone 2 — Responses and routing
 - [ ] 06. `HttpResponse` builder (status, headers, body, serialization)

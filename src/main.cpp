@@ -5,6 +5,7 @@
 #include <string>
 
 #include "http_request.hpp"
+#include "request_reader.hpp"
 #include "tcp_server.hpp"
 #include "version.hpp"
 
@@ -30,24 +31,29 @@ std::string make_response(const std::string& status, const std::string& body) {
 }
 
 void handle_connection(http::Socket& client) {
-    const std::string raw = client.receive();
-    if (raw.empty()) {
-        return;
-    }
-
-    const auto line_end = raw.find("\r\n");
     try {
-        const http::HttpRequest request = http::parse_request_line(
-            std::string_view(raw).substr(0, line_end));
+        const auto request = http::read_request(client);
+        if (!request) {
+            return;
+        }
 
         std::string body = "Hello from cpp-http-server!\n";
-        body += "method: " + std::string(http::to_string(request.method)) + "\n";
-        body += "path:   " + request.path + "\n";
-        if (!request.query.empty()) {
-            body += "query:  " + request.query + "\n";
+        body += "method:  " + std::string(http::to_string(request->method)) + "\n";
+        body += "path:    " + request->path + "\n";
+        if (!request->query.empty()) {
+            body += "query:   " + request->query + "\n";
         }
-        std::cout << to_string(request.method) << ' ' << request.target << '\n';
+        body += "headers: " + std::to_string(request->headers.size()) + "\n";
+        if (const auto agent = request->header("User-Agent")) {
+            body += "agent:   " + *agent + "\n";
+        }
+        if (!request->body.empty()) {
+            body += "body:    " + request->body + "\n";
+        }
+        std::cout << to_string(request->method) << ' ' << request->target << '\n';
         client.send_all(make_response("200 OK", body));
+    } catch (const http::RequestTooLarge& error) {
+        client.send_all(make_response("413 Payload Too Large", std::string(error.what()) + "\n"));
     } catch (const http::ParseError& error) {
         client.send_all(make_response("400 Bad Request", std::string(error.what()) + "\n"));
     }

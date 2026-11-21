@@ -91,6 +91,9 @@ Any path that matches no route is looked up in the document root
 - directories serve their `index.html`, so `/` serves `public/index.html`
 - a directory without a trailing slash (`/docs`) is redirected to `/docs/`
 - missing files return `404`, non-GET/HEAD methods return `405`
+- requests can't escape the document root: `..` segments (including
+  encoded ones like `%2e%2e`), hidden files such as `.env` or `.git`, and
+  symlinks that resolve outside the root are answered with `403 Forbidden`
 
 Unknown paths return `404`, known paths with the wrong method return `405`
 with an `Allow` header, and `HEAD` is answered automatically for `GET` routes.

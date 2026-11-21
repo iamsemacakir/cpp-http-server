@@ -5,6 +5,7 @@
 #include <string>
 
 #include "http_request.hpp"
+#include "http_response.hpp"
 #include "request_reader.hpp"
 #include "tcp_server.hpp"
 #include "version.hpp"
@@ -22,12 +23,9 @@ std::uint16_t parse_port(int argc, char** argv) {
     return static_cast<std::uint16_t>(port);
 }
 
-std::string make_response(const std::string& status, const std::string& body) {
-    return "HTTP/1.1 " + status + "\r\n"
-           "Content-Type: text/plain; charset=utf-8\r\n"
-           "Content-Length: " + std::to_string(body.size()) + "\r\n"
-           "Connection: close\r\n"
-           "\r\n" + body;
+void send(http::Socket& client, http::HttpResponse response, bool head_only = false) {
+    response.set_header("Connection", "close");
+    client.send_all(response.serialize(head_only));
 }
 
 void handle_connection(http::Socket& client) {
@@ -51,11 +49,12 @@ void handle_connection(http::Socket& client) {
             body += "body:    " + request->body + "\n";
         }
         std::cout << to_string(request->method) << ' ' << request->target << '\n';
-        client.send_all(make_response("200 OK", body));
+        send(client, http::HttpResponse::text(200, body),
+             request->method == http::Method::Head);
     } catch (const http::RequestTooLarge& error) {
-        client.send_all(make_response("413 Payload Too Large", std::string(error.what()) + "\n"));
+        send(client, http::HttpResponse::text(413, std::string(error.what()) + "\n"));
     } catch (const http::ParseError& error) {
-        client.send_all(make_response("400 Bad Request", std::string(error.what()) + "\n"));
+        send(client, http::HttpResponse::text(400, std::string(error.what()) + "\n"));
     }
 }
 

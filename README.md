@@ -28,8 +28,11 @@ Linux and macOS are supported (POSIX sockets).
 ```bash
 cmake -S . -B build
 cmake --build build
-./build/http_server
+./build/http_server        # listens on port 8080
+./build/http_server 3000   # or pick a port
 ```
+
+Then open http://localhost:8080 or run `curl -i http://localhost:8080/`.
 
 ## Project structure
 

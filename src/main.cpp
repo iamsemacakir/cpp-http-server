@@ -2,8 +2,11 @@
 #include <cstdint>
 #include <exception>
 #include <iostream>
+#include <optional>
+#include <stdexcept>
 #include <string>
 
+#include "error_pages.hpp"
 #include "http_request.hpp"
 #include "http_response.hpp"
 #include "request_reader.hpp"
@@ -78,6 +81,10 @@ http::Router build_router(const http::StaticFiles& static_files) {
                                       " by user #" + request.param("id").value_or("") + "\n");
     });
 
+    router.get("/error", [](const HttpRequest&) -> HttpResponse {
+        throw std::runtime_error("demo failure from /error");
+    });
+
     router.post("/echo", [](const HttpRequest& request) {
         HttpResponse response(http::status::kOk);
         response.set_body(request.body,
@@ -97,28 +104,34 @@ void send(http::Socket& client, http::HttpResponse response, bool head_only = fa
     client.send_all(response.serialize(head_only));
 }
 
-void handle_connection(const http::Router& router, http::Socket& client) {
+void handle_connection(const http::Router& router, const http::ErrorPages& error_pages,
+                       http::Socket& client) {
+    std::optional<http::HttpRequest> request;
     try {
-        const auto request = http::read_request(client);
-        if (!request) {
-            return;
-        }
-
-        http::HttpResponse response = router.route(*request);
-        std::cout << to_string(request->method) << ' ' << request->target << " -> "
-                  << response.status() << '\n';
-        send(client, std::move(response), request->method == http::Method::Head);
+        request = http::read_request(client);
     } catch (const http::RequestTooLarge& error) {
-        send(client, http::HttpResponse::text(http::status::kPayloadTooLarge,
-                                              std::string(error.what()) + "\n"));
+        send(client, http::HttpResponse::error(http::status::kPayloadTooLarge, error.what()));
+        return;
     } catch (const http::ParseError& error) {
-        send(client, http::HttpResponse::text(http::status::kBadRequest,
-                                              std::string(error.what()) + "\n"));
+        send(client, http::HttpResponse::error(http::status::kBadRequest, error.what()));
+        return;
+    }
+    if (!request) {
+        return;
+    }
+
+    http::HttpResponse response;
+    try {
+        response = router.route(*request);
     } catch (const std::exception& error) {
         std::cerr << "handler error: " << error.what() << '\n';
-        send(client, http::HttpResponse::text(http::status::kInternalServerError,
-                                              "500 Internal Server Error\n"));
+        response = http::HttpResponse::error(http::status::kInternalServerError);
     }
+    error_pages.apply(*request, response);
+
+    std::cout << to_string(request->method) << ' ' << request->target << " -> "
+              << response.status() << '\n';
+    send(client, std::move(response), request->method == http::Method::Head);
 }
 
 } // namespace
@@ -129,13 +142,16 @@ int main(int argc, char** argv) {
     try {
         const http::StaticFiles static_files(argc >= 3 ? argv[2] : "public");
         const http::Router router = build_router(static_files);
+        const http::ErrorPages error_pages("errors");
         http::TcpServer server("0.0.0.0", parse_port(argc, argv));
         server.listen();
         std::cout << http::kServerName << " v" << http::kServerVersion
                   << " listening on http://localhost:" << server.port() << " ("
                   << router.size() << " routes, serving " << static_files.root().string()
                   << ")\n";
-        server.serve([&router](http::Socket& client) { handle_connection(router, client); });
+        server.serve([&router, &error_pages](http::Socket& client) {
+            handle_connection(router, error_pages, client);
+        });
     } catch (const std::exception& error) {
         std::cerr << "fatal: " << error.what() << '\n';
         return 1;

@@ -54,10 +54,24 @@ http::Router build_router() {
         body += "path:    " + request.path + "\n";
         body += "query:   " + request.query + "\n";
         body += "version: " + request.version + "\n";
+        for (const auto& [key, value] : request.query_params) {
+            body += "param:   " + key + " = " + value + "\n";
+        }
         for (const auto& [name, value] : request.headers) {
             body += "header:  " + name + ": " + value + "\n";
         }
         return HttpResponse::text(http::status::kOk, body);
+    });
+
+    router.get("/search", [](const HttpRequest& request) {
+        const auto query = request.query_param("q");
+        if (!query || query->empty()) {
+            return HttpResponse::text(http::status::kBadRequest,
+                                      "missing query parameter 'q'\n");
+        }
+        const std::string limit = request.query_param("limit").value_or("10");
+        return HttpResponse::text(http::status::kOk, "Searching for \"" + *query +
+                                                         "\" (limit " + limit + ")\n");
     });
 
     router.get("/users/:id", [](const HttpRequest& request) {

@@ -34,6 +34,9 @@ public:
     // Returns the local port the socket is bound to (useful with port 0).
     std::uint16_t local_port() const;
 
+    // Address of the connected peer as "ip:port", or "unknown".
+    std::string peer_address() const;
+
     // Sends the whole buffer, retrying on partial writes.
     void send_all(std::string_view data) const;
 

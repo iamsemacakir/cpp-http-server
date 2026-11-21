@@ -5,6 +5,7 @@
 #include <netinet/in.h>
 #include <sys/socket.h>
 #include <sys/types.h>
+#include <string>
 #include <system_error>
 #include <unistd.h>
 #include <utility>
@@ -92,6 +93,19 @@ std::uint16_t Socket::local_port() const {
         throw_errno("getsockname");
     }
     return ntohs(address.sin_port);
+}
+
+std::string Socket::peer_address() const {
+    sockaddr_in address{};
+    socklen_t length = sizeof(address);
+    if (::getpeername(fd_, reinterpret_cast<sockaddr*>(&address), &length) < 0) {
+        return "unknown";
+    }
+    char ip[INET_ADDRSTRLEN] = {};
+    if (::inet_ntop(AF_INET, &address.sin_addr, ip, sizeof(ip)) == nullptr) {
+        return "unknown";
+    }
+    return std::string(ip) + ":" + std::to_string(ntohs(address.sin_port));
 }
 
 void Socket::send_all(std::string_view data) const {

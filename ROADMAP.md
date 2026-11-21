@@ -20,7 +20,7 @@ Development log of the server, one step at a time.
 - [x] 11. Static file handler with MIME type detection
 - [x] 12. Path traversal protection (`../` attacks)
 - [x] 13. Custom error pages (404, 405, 500)
-- [ ] 14. Logger with timestamps and levels
+- [x] 14. Logger with timestamps and levels
 
 ## Milestone 4 — Concurrency and robustness
 - [ ] 15. `ThreadPool` implementation

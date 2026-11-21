@@ -96,9 +96,22 @@ HttpRequest parse_request_line(std::string_view line) {
     request.version = std::string(version);
 
     const auto question_mark = target.find('?');
-    request.path = std::string(target.substr(0, question_mark));
+    auto path = url_decode(target.substr(0, question_mark));
+    if (!path) {
+        throw ParseError("malformed percent-encoding in path");
+    }
+    if (path->find('\0') != std::string::npos) {
+        throw ParseError("NUL byte in path");
+    }
+    request.path = std::move(*path);
+
     if (question_mark != std::string_view::npos) {
         request.query = std::string(target.substr(question_mark + 1));
+        auto params = parse_query(request.query);
+        if (!params) {
+            throw ParseError("malformed percent-encoding in query string");
+        }
+        request.query_params = std::move(*params);
     }
     return request;
 }
@@ -114,6 +127,14 @@ std::optional<std::string> HttpRequest::header(std::string_view name) const {
 std::optional<std::string> HttpRequest::param(std::string_view name) const {
     const auto it = params.find(std::string(name));
     if (it == params.end()) {
+        return std::nullopt;
+    }
+    return it->second;
+}
+
+std::optional<std::string> HttpRequest::query_param(std::string_view name) const {
+    const auto it = query_params.find(std::string(name));
+    if (it == query_params.end()) {
         return std::nullopt;
     }
     return it->second;

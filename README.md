@@ -54,7 +54,16 @@ router.get("/users/:id", [](const http::HttpRequest& request) {
     return http::HttpResponse::text(http::status::kOk,
                                     "User #" + request.param("id").value_or("") + "\n");
 });
+
+// Query strings: "/search?q=hello+world" -> query_param("q") == "hello world"
+router.get("/search", [](const http::HttpRequest& request) {
+    return http::HttpResponse::text(http::status::kOk,
+                                    request.query_param("q").value_or("") + "\n");
+});
 ```
+
+Paths and query strings are percent-decoded (`%20`, and `+` in queries);
+malformed escapes are rejected with `400 Bad Request`.
 
 Static routes take priority over parameterised ones, so `/users/me` can be
 registered alongside `/users/:id`.
@@ -67,6 +76,7 @@ Built-in demo routes:
 | GET    | `/hello`   | Plain-text greeting                 |
 | GET    | `/health`  | JSON health check                   |
 | GET    | `/request` | Echoes the parsed request back      |
+| GET    | `/search?q=...` | Reads decoded query parameters |
 | GET    | `/users/:id` | Shows the captured `id` parameter |
 | GET    | `/users/:id/posts/:post_id` | Two path parameters    |
 | POST   | `/echo`    | Returns the request body unchanged  |

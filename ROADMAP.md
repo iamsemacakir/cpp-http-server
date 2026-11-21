@@ -14,7 +14,7 @@ Development log of the server, one step at a time.
 - [x] 07. Status code table with reason phrases
 - [x] 08. `Router` with method + exact path matching
 - [x] 09. Path parameters (`/users/:id`)
-- [ ] 10. Query string parsing and URL decoding
+- [x] 10. Query string parsing and URL decoding
 
 ## Milestone 3 — Static files
 - [ ] 11. Static file handler with MIME type detection

@@ -7,6 +7,8 @@
 #include <string_view>
 #include <unordered_map>
 
+#include "url.hpp"
+
 namespace http {
 
 enum class Method { Get, Head, Post, Put, Patch, Delete, Options, Unknown };
@@ -29,8 +31,9 @@ public:
 struct HttpRequest {
     Method method = Method::Unknown;
     std::string target;  // raw request target, e.g. "/search?q=cpp"
-    std::string path;    // "/search"
-    std::string query;   // "q=cpp" (without the '?')
+    std::string path;    // "/search", percent-decoded
+    std::string query;   // "q=cpp" (raw, without the '?')
+    QueryParams query_params; // decoded key/value pairs from `query`
     std::string version; // "HTTP/1.1"
 
     // Header names are stored lower-cased, since HTTP headers are
@@ -44,6 +47,9 @@ struct HttpRequest {
 
     // Value of a captured path parameter, if present.
     std::optional<std::string> param(std::string_view name) const;
+
+    // First value of a query parameter, if present.
+    std::optional<std::string> query_param(std::string_view name) const;
 
     // Case-insensitive header lookup.
     std::optional<std::string> header(std::string_view name) const;

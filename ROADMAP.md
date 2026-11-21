@@ -5,7 +5,7 @@ Development log of the server, one step at a time.
 ## Milestone 1 — Networking basics
 - [x] 01. Project scaffolding: CMake, README, main entry point
 - [x] 02. RAII `Socket` wrapper class (create, close, move-only)
-- [ ] 03. TCP server: bind, listen, accept loop returning a fixed response
+- [x] 03. TCP server: bind, listen, accept loop returning a fixed response
 - [ ] 04. `HttpRequest` model + request-line parser (method, path, version)
 - [ ] 05. Header parsing + reading the body via `Content-Length`
 

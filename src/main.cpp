@@ -8,6 +8,7 @@
 #include "http_response.hpp"
 #include "request_reader.hpp"
 #include "router.hpp"
+#include "static_files.hpp"
 #include "tcp_server.hpp"
 #include "version.hpp"
 
@@ -24,19 +25,11 @@ std::uint16_t parse_port(int argc, char** argv) {
     return static_cast<std::uint16_t>(port);
 }
 
-http::Router build_router() {
+http::Router build_router(const http::StaticFiles& static_files) {
     using http::HttpRequest;
     using http::HttpResponse;
 
     http::Router router;
-
-    router.get("/", [](const HttpRequest&) {
-        return HttpResponse::html(http::status::kOk,
-                                  "<!DOCTYPE html>\n<html><head><title>cpp-http-server</title></head>"
-                                  "<body><h1>It works!</h1>"
-                                  "<p>Try <a href=\"/hello\">/hello</a> or "
-                                  "<a href=\"/request\">/request</a>.</p></body></html>\n");
-    });
 
     router.get("/hello", [](const HttpRequest&) {
         return HttpResponse::text(http::status::kOk, "Hello from cpp-http-server!\n");
@@ -92,6 +85,10 @@ http::Router build_router() {
         return response;
     });
 
+    router.fallback([&static_files](const HttpRequest& request) {
+        return static_files.serve(request);
+    });
+
     return router;
 }
 
@@ -130,12 +127,14 @@ int main(int argc, char** argv) {
     std::signal(SIGPIPE, SIG_IGN);
 
     try {
-        const http::Router router = build_router();
+        const http::StaticFiles static_files(argc >= 3 ? argv[2] : "public");
+        const http::Router router = build_router(static_files);
         http::TcpServer server("0.0.0.0", parse_port(argc, argv));
         server.listen();
         std::cout << http::kServerName << " v" << http::kServerVersion
                   << " listening on http://localhost:" << server.port() << " ("
-                  << router.size() << " routes)\n";
+                  << router.size() << " routes, serving " << static_files.root().string()
+                  << ")\n";
         server.serve([&router](http::Socket& client) { handle_connection(router, client); });
     } catch (const std::exception& error) {
         std::cerr << "fatal: " << error.what() << '\n';

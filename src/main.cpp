@@ -49,12 +49,12 @@ void handle_connection(http::Socket& client) {
             body += "body:    " + request->body + "\n";
         }
         std::cout << to_string(request->method) << ' ' << request->target << '\n';
-        send(client, http::HttpResponse::text(200, body),
+        send(client, http::HttpResponse::text(http::status::kOk, body),
              request->method == http::Method::Head);
     } catch (const http::RequestTooLarge& error) {
-        send(client, http::HttpResponse::text(413, std::string(error.what()) + "\n"));
+        send(client, http::HttpResponse::text(http::status::kPayloadTooLarge, std::string(error.what()) + "\n"));
     } catch (const http::ParseError& error) {
-        send(client, http::HttpResponse::text(400, std::string(error.what()) + "\n"));
+        send(client, http::HttpResponse::text(http::status::kBadRequest, std::string(error.what()) + "\n"));
     }
 }
 

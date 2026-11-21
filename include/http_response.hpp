@@ -6,12 +6,14 @@
 #include <utility>
 #include <vector>
 
+#include "status.hpp"
+
 namespace http {
 
 // Builds an HTTP/1.1 response and serializes it to the wire format.
 class HttpResponse {
 public:
-    explicit HttpResponse(int status = 200);
+    explicit HttpResponse(int status = status::kOk);
 
     // Convenience factories for common content types.
     static HttpResponse text(int status, std::string body);

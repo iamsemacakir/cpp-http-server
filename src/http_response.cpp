@@ -4,6 +4,7 @@
 #include <cctype>
 #include <ctime>
 
+#include "status.hpp"
 #include "version.hpp"
 
 namespace http {
@@ -16,17 +17,6 @@ bool iequals(std::string_view a, std::string_view b) {
                return std::tolower(static_cast<unsigned char>(x)) ==
                       std::tolower(static_cast<unsigned char>(y));
            });
-}
-
-std::string_view reason_phrase(int status) {
-    switch (status) {
-    case 200: return "OK";
-    case 400: return "Bad Request";
-    case 404: return "Not Found";
-    case 413: return "Payload Too Large";
-    case 500: return "Internal Server Error";
-    default: return "Unknown";
-    }
 }
 
 // RFC 7231 IMF-fixdate, e.g. "Sat, 21 Nov 2026 14:00:00 GMT".

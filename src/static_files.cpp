@@ -1,5 +1,6 @@
 #include "static_files.hpp"
 
+#include <algorithm>
 #include <fstream>
 #include <iterator>
 #include <system_error>
@@ -11,12 +12,58 @@ namespace http {
 
 namespace fs = std::filesystem;
 
+namespace {
+
+HttpResponse forbidden() {
+    return HttpResponse::text(status::kForbidden, "403 Forbidden\n");
+}
+
+} // namespace
+
 StaticFiles::StaticFiles(fs::path root, std::string index_file)
-    : root_(std::move(root)), index_file_(std::move(index_file)) {
+    : index_file_(std::move(index_file)) {
     std::error_code error;
-    if (!fs::is_directory(root_, error)) {
-        throw std::invalid_argument("document root is not a directory: " + root_.string());
+    if (!fs::is_directory(root, error)) {
+        throw std::invalid_argument("document root is not a directory: " + root.string());
     }
+    // Canonical form (absolute, no symlinks) so containment checks are exact.
+    root_ = fs::canonical(root);
+}
+
+bool StaticFiles::inside_root(const fs::path& path) const {
+    // Component-wise prefix check, so "/srv/www-private" is not inside "/srv/www".
+    return std::mismatch(root_.begin(), root_.end(), path.begin(), path.end()).first ==
+           root_.end();
+}
+
+std::optional<fs::path> StaticFiles::resolve(std::string_view url_path) const {
+    if (url_path.empty() || url_path.front() != '/' || url_path.find('\\') != std::string_view::npos) {
+        return std::nullopt;
+    }
+
+    fs::path target = root_;
+    std::string_view rest = url_path.substr(1);
+    while (!rest.empty()) {
+        const auto slash = rest.find('/');
+        const std::string_view segment = rest.substr(0, slash);
+        rest = slash == std::string_view::npos ? std::string_view{} : rest.substr(slash + 1);
+        if (segment.empty()) {
+            continue; // "//" or trailing slash
+        }
+        // Rejects ".", "..", and hidden files such as ".git" or ".env".
+        if (segment.front() == '.') {
+            return std::nullopt;
+        }
+        target /= fs::path(std::string(segment));
+    }
+
+    // Lexically the path is inside the root; make sure symlinks don't lead out.
+    std::error_code error;
+    const fs::path resolved = fs::weakly_canonical(target, error);
+    if (error || !inside_root(resolved)) {
+        return std::nullopt;
+    }
+    return resolved;
 }
 
 HttpResponse StaticFiles::serve(const HttpRequest& request) const {
@@ -29,8 +76,12 @@ HttpResponse StaticFiles::serve(const HttpRequest& request) const {
         return response;
     }
 
-    // request.path is already percent-decoded and always starts with '/'.
-    fs::path target = root_ / fs::path(request.path).relative_path();
+    // request.path is already percent-decoded, so "%2e%2e" arrives as "..".
+    const auto resolved = resolve(request.path);
+    if (!resolved) {
+        return forbidden();
+    }
+    fs::path target = *resolved;
 
     std::error_code error;
     if (fs::is_directory(target, error)) {
@@ -44,7 +95,10 @@ HttpResponse StaticFiles::serve(const HttpRequest& request) const {
             response.set_header("Location", std::move(location));
             return response;
         }
-        target /= index_file_;
+        target = fs::weakly_canonical(target / index_file_, error);
+        if (error || !inside_root(target)) {
+            return forbidden();
+        }
     }
 
     if (!fs::is_regular_file(target, error)) {
@@ -56,7 +110,7 @@ HttpResponse StaticFiles::serve(const HttpRequest& request) const {
 HttpResponse StaticFiles::serve_file(const fs::path& file) const {
     std::ifstream input(file, std::ios::binary);
     if (!input) {
-        return HttpResponse::text(status::kForbidden, "403 Forbidden\n");
+        return forbidden();
     }
     std::string body{std::istreambuf_iterator<char>(input), std::istreambuf_iterator<char>()};
     if (input.bad()) {

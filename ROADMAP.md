@@ -18,7 +18,7 @@ Development log of the server, one step at a time.
 
 ## Milestone 3 — Static files
 - [x] 11. Static file handler with MIME type detection
-- [ ] 12. Path traversal protection (`../` attacks)
+- [x] 12. Path traversal protection (`../` attacks)
 - [ ] 13. Custom error pages (404, 405, 500)
 - [ ] 14. Logger with timestamps and levels
 

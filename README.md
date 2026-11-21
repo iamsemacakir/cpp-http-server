@@ -34,6 +34,35 @@ cmake --build build
 
 Then open http://localhost:8080 or run `curl -i http://localhost:8080/`.
 
+## Usage
+
+Routes are registered with a small, fluent API:
+
+```cpp
+http::Router router;
+
+router.get("/hello", [](const http::HttpRequest&) {
+    return http::HttpResponse::text(http::status::kOk, "Hello!\n");
+});
+
+router.post("/echo", [](const http::HttpRequest& request) {
+    return http::HttpResponse::text(http::status::kOk, request.body);
+});
+```
+
+Built-in demo routes:
+
+| Method | Path       | Description                         |
+|--------|------------|-------------------------------------|
+| GET    | `/`        | HTML welcome page                   |
+| GET    | `/hello`   | Plain-text greeting                 |
+| GET    | `/health`  | JSON health check                   |
+| GET    | `/request` | Echoes the parsed request back      |
+| POST   | `/echo`    | Returns the request body unchanged  |
+
+Unknown paths return `404`, known paths with the wrong method return `405`
+with an `Allow` header, and `HEAD` is answered automatically for `GET` routes.
+
 ## Project structure
 
 ```

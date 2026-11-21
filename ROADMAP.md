@@ -12,7 +12,7 @@ Development log of the server, one step at a time.
 ## Milestone 2 — Responses and routing
 - [x] 06. `HttpResponse` builder (status, headers, body, serialization)
 - [x] 07. Status code table with reason phrases
-- [ ] 08. `Router` with method + exact path matching
+- [x] 08. `Router` with method + exact path matching
 - [ ] 09. Path parameters (`/users/:id`)
 - [ ] 10. Query string parsing and URL decoding
 

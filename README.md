@@ -48,7 +48,16 @@ router.get("/hello", [](const http::HttpRequest&) {
 router.post("/echo", [](const http::HttpRequest& request) {
     return http::HttpResponse::text(http::status::kOk, request.body);
 });
+
+// Path parameters: "/users/42" -> param("id") == "42"
+router.get("/users/:id", [](const http::HttpRequest& request) {
+    return http::HttpResponse::text(http::status::kOk,
+                                    "User #" + request.param("id").value_or("") + "\n");
+});
 ```
+
+Static routes take priority over parameterised ones, so `/users/me` can be
+registered alongside `/users/:id`.
 
 Built-in demo routes:
 
@@ -58,6 +67,8 @@ Built-in demo routes:
 | GET    | `/hello`   | Plain-text greeting                 |
 | GET    | `/health`  | JSON health check                   |
 | GET    | `/request` | Echoes the parsed request back      |
+| GET    | `/users/:id` | Shows the captured `id` parameter |
+| GET    | `/users/:id/posts/:post_id` | Two path parameters    |
 | POST   | `/echo`    | Returns the request body unchanged  |
 
 Unknown paths return `404`, known paths with the wrong method return `405`

@@ -111,6 +111,14 @@ std::optional<std::string> HttpRequest::header(std::string_view name) const {
     return it->second;
 }
 
+std::optional<std::string> HttpRequest::param(std::string_view name) const {
+    const auto it = params.find(std::string(name));
+    if (it == params.end()) {
+        return std::nullopt;
+    }
+    return it->second;
+}
+
 std::size_t HttpRequest::content_length() const {
     const auto value = header("Content-Length");
     if (!value) {

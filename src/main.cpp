@@ -4,6 +4,7 @@
 #include <iostream>
 #include <string>
 
+#include "http_request.hpp"
 #include "tcp_server.hpp"
 #include "version.hpp"
 
@@ -20,20 +21,36 @@ std::uint16_t parse_port(int argc, char** argv) {
     return static_cast<std::uint16_t>(port);
 }
 
+std::string make_response(const std::string& status, const std::string& body) {
+    return "HTTP/1.1 " + status + "\r\n"
+           "Content-Type: text/plain; charset=utf-8\r\n"
+           "Content-Length: " + std::to_string(body.size()) + "\r\n"
+           "Connection: close\r\n"
+           "\r\n" + body;
+}
+
 void handle_connection(http::Socket& client) {
-    const std::string request = client.receive();
-    if (request.empty()) {
+    const std::string raw = client.receive();
+    if (raw.empty()) {
         return;
     }
 
-    const std::string body = "Hello from cpp-http-server!\n";
-    const std::string response =
-        "HTTP/1.1 200 OK\r\n"
-        "Content-Type: text/plain; charset=utf-8\r\n"
-        "Content-Length: " + std::to_string(body.size()) + "\r\n"
-        "Connection: close\r\n"
-        "\r\n" + body;
-    client.send_all(response);
+    const auto line_end = raw.find("\r\n");
+    try {
+        const http::HttpRequest request = http::parse_request_line(
+            std::string_view(raw).substr(0, line_end));
+
+        std::string body = "Hello from cpp-http-server!\n";
+        body += "method: " + std::string(http::to_string(request.method)) + "\n";
+        body += "path:   " + request.path + "\n";
+        if (!request.query.empty()) {
+            body += "query:  " + request.query + "\n";
+        }
+        std::cout << to_string(request.method) << ' ' << request.target << '\n';
+        client.send_all(make_response("200 OK", body));
+    } catch (const http::ParseError& error) {
+        client.send_all(make_response("400 Bad Request", std::string(error.what()) + "\n"));
+    }
 }
 
 } // namespace

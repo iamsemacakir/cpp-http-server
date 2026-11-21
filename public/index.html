@@ -1,8 +1,18 @@
 <!DOCTYPE html>
 <html lang="en">
-<head><meta charset="utf-8"><title>cpp-http-server</title></head>
+<head>
+  <meta charset="utf-8">
+  <title>cpp-http-server</title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
 <body>
   <h1>It works!</h1>
-  <p>Served by cpp-http-server.</p>
+  <p>This page is a static file served from <code>public/</code> by cpp-http-server.</p>
+  <ul>
+    <li><a href="/hello">/hello</a></li>
+    <li><a href="/request?demo=1">/request</a></li>
+    <li><a href="/search?q=c%2B%2B">/search?q=c++</a></li>
+    <li><a href="/users/42">/users/42</a></li>
+  </ul>
 </body>
 </html>

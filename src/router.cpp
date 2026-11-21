@@ -121,6 +121,11 @@ Router& Router::add(Method method, std::string path, Handler handler) {
     return *this;
 }
 
+Router& Router::fallback(Handler handler) {
+    fallback_ = std::move(handler);
+    return *this;
+}
+
 HttpResponse Router::route(const HttpRequest& request) const {
     std::set<Method> allowed;
     bool path_known = false;
@@ -153,6 +158,9 @@ HttpResponse Router::route(const HttpRequest& request) const {
     }
 
     if (!path_known) {
+        if (fallback_) {
+            return fallback_(request);
+        }
         return HttpResponse::text(status::kNotFound, "404 Not Found: " + request.path + "\n");
     }
 

@@ -20,7 +20,7 @@ using Handler = std::function<HttpResponse(const HttpRequest&)>;
 //    values are available through HttpRequest::param()
 //  - exact (static) routes win over parameterised ones, and parameterised
 //    routes are tried in registration order
-//  - unknown path              -> 404 Not Found
+//  - unknown path              -> fallback handler if set, else 404 Not Found
 //  - known path, wrong method  -> 405 Method Not Allowed + Allow header
 //  - HEAD falls back to the GET handler when no HEAD route exists
 class Router {
@@ -39,6 +39,9 @@ public:
     Router& del(std::string path, Handler handler) {
         return add(Method::Delete, std::move(path), std::move(handler));
     }
+
+    // Handler for requests whose path matches no route (e.g. static files).
+    Router& fallback(Handler handler);
 
     HttpResponse route(const HttpRequest& request) const;
 
@@ -67,6 +70,7 @@ private:
     // Static path -> (method -> handler); std::map keeps Allow headers sorted.
     std::map<std::string, MethodHandlers> routes_;
     std::vector<PatternRoute> patterns_;
+    Handler fallback_;
 };
 
 } // namespace http

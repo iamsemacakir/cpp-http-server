@@ -30,6 +30,7 @@ cmake -S . -B build
 cmake --build build
 ./build/http_server        # listens on port 8080
 ./build/http_server 3000   # or pick a port
+./build/http_server 3000 www   # port + document root (default: public)
 ```
 
 Then open http://localhost:8080 or run `curl -i http://localhost:8080/`.
@@ -72,7 +73,6 @@ Built-in demo routes:
 
 | Method | Path       | Description                         |
 |--------|------------|-------------------------------------|
-| GET    | `/`        | HTML welcome page                   |
 | GET    | `/hello`   | Plain-text greeting                 |
 | GET    | `/health`  | JSON health check                   |
 | GET    | `/request` | Echoes the parsed request back      |
@@ -80,6 +80,17 @@ Built-in demo routes:
 | GET    | `/users/:id` | Shows the captured `id` parameter |
 | GET    | `/users/:id/posts/:post_id` | Two path parameters    |
 | POST   | `/echo`    | Returns the request body unchanged  |
+
+## Static files
+
+Any path that matches no route is looked up in the document root
+(`public/` by default):
+
+- `/css/style.css` serves `public/css/style.css` with `Content-Type: text/css`
+  (the MIME type comes from the file extension)
+- directories serve their `index.html`, so `/` serves `public/index.html`
+- a directory without a trailing slash (`/docs`) is redirected to `/docs/`
+- missing files return `404`, non-GET/HEAD methods return `405`
 
 Unknown paths return `404`, known paths with the wrong method return `405`
 with an `Allow` header, and `HEAD` is answered automatically for `GET` routes.

@@ -15,7 +15,7 @@ namespace fs = std::filesystem;
 namespace {
 
 HttpResponse forbidden() {
-    return HttpResponse::text(status::kForbidden, "403 Forbidden\n");
+    return HttpResponse::error(status::kForbidden);
 }
 
 } // namespace
@@ -68,10 +68,8 @@ std::optional<fs::path> StaticFiles::resolve(std::string_view url_path) const {
 
 HttpResponse StaticFiles::serve(const HttpRequest& request) const {
     if (request.method != Method::Get && request.method != Method::Head) {
-        HttpResponse response = HttpResponse::text(status::kMethodNotAllowed,
-                                                   "405 Method Not Allowed: " +
-                                                       std::string(to_string(request.method)) +
-                                                       "\n");
+        HttpResponse response = HttpResponse::error(status::kMethodNotAllowed,
+                                                    std::string(to_string(request.method)));
         response.set_header("Allow", "GET, HEAD");
         return response;
     }
@@ -102,7 +100,7 @@ HttpResponse StaticFiles::serve(const HttpRequest& request) const {
     }
 
     if (!fs::is_regular_file(target, error)) {
-        return HttpResponse::text(status::kNotFound, "404 Not Found: " + request.path + "\n");
+        return HttpResponse::error(status::kNotFound, request.path);
     }
     return serve_file(target);
 }

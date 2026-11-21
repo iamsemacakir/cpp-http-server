@@ -161,12 +161,11 @@ HttpResponse Router::route(const HttpRequest& request) const {
         if (fallback_) {
             return fallback_(request);
         }
-        return HttpResponse::text(status::kNotFound, "404 Not Found: " + request.path + "\n");
+        return HttpResponse::error(status::kNotFound, request.path);
     }
 
-    HttpResponse response = HttpResponse::text(
-        status::kMethodNotAllowed,
-        "405 Method Not Allowed: " + std::string(to_string(request.method)) + "\n");
+    HttpResponse response =
+        HttpResponse::error(status::kMethodNotAllowed, std::string(to_string(request.method)));
     response.set_header("Allow", allowed_methods(allowed));
     return response;
 }

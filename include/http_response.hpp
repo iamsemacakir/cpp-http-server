@@ -19,6 +19,14 @@ public:
     static HttpResponse text(int status, std::string body);
     static HttpResponse html(int status, std::string body);
 
+    // A server-generated error, e.g. error(404, "/missing"). The body is
+    // plain text ("404 Not Found: /missing"), but the response is marked so
+    // ErrorPages can replace it with an HTML page later.
+    static HttpResponse error(int status, std::string detail = {});
+
+    bool is_generated_error() const noexcept { return error_detail_.has_value(); }
+    const std::string& error_detail() const noexcept;
+
     int status() const noexcept { return status_; }
     HttpResponse& set_status(int status) noexcept;
 
@@ -41,6 +49,7 @@ private:
     int status_;
     std::vector<std::pair<std::string, std::string>> headers_;
     std::string body_;
+    std::optional<std::string> error_detail_;
 };
 
 } // namespace http

@@ -79,6 +79,7 @@ Built-in demo routes:
 | GET    | `/search?q=...` | Reads decoded query parameters |
 | GET    | `/users/:id` | Shows the captured `id` parameter |
 | GET    | `/users/:id/posts/:post_id` | Two path parameters    |
+| GET    | `/error`   | Throws, to demo the 500 error page  |
 | POST   | `/echo`    | Returns the request body unchanged  |
 
 ## Static files
@@ -98,12 +99,26 @@ Any path that matches no route is looked up in the document root
 Unknown paths return `404`, known paths with the wrong method return `405`
 with an `Allow` header, and `HEAD` is answered automatically for `GET` routes.
 
+## Error pages
+
+Errors produced by the server itself (unknown path, wrong method, forbidden
+file, handler exception, malformed request) are rendered as HTML pages for
+clients that send `Accept: text/html` (browsers). Other clients, like
+`curl`, get a one-line plain-text body such as `404 Not Found: /nope`.
+
+Templates live in `errors/` and are named after the status code
+(`404.html`, `405.html`, `500.html`). They can use the placeholders
+`{{status}}`, `{{reason}}` and `{{message}}` (HTML-escaped). Status codes
+without a template get a simple built-in page. Error responses that a
+handler builds itself (e.g. `/search` without `q`) are left untouched.
+
 ## Project structure
 
 ```
 include/   public headers
 src/       implementation
 public/    static files served by the demo
+errors/    HTML templates for error pages
 ```
 
 ## License

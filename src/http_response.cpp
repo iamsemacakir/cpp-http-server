@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <cctype>
 #include <ctime>
+#include <string>
 
 #include "status.hpp"
 #include "version.hpp"
@@ -46,6 +47,22 @@ HttpResponse HttpResponse::html(int status, std::string body) {
     return response;
 }
 
+HttpResponse HttpResponse::error(int status, std::string detail) {
+    std::string body = std::to_string(status) + " " + std::string(reason_phrase(status));
+    if (!detail.empty()) {
+        body += ": " + detail;
+    }
+    body += "\n";
+    HttpResponse response = text(status, std::move(body));
+    response.error_detail_ = std::move(detail);
+    return response;
+}
+
+const std::string& HttpResponse::error_detail() const noexcept {
+    static const std::string kEmpty;
+    return error_detail_ ? *error_detail_ : kEmpty;
+}
+
 HttpResponse& HttpResponse::set_status(int status) noexcept {
     status_ = status;
     return *this;
@@ -73,6 +90,7 @@ std::optional<std::string> HttpResponse::header(std::string_view name) const {
 
 HttpResponse& HttpResponse::set_body(std::string body, std::string content_type) {
     body_ = std::move(body);
+    error_detail_.reset(); // a custom body is no longer a generated error
     set_header("Content-Type", std::move(content_type));
     return *this;
 }

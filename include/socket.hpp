@@ -1,5 +1,6 @@
 #pragma once
 
+#include <chrono>
 #include <cstddef>
 #include <cstdint>
 #include <string>
@@ -25,6 +26,11 @@ public:
     static Socket create_tcp();
 
     void set_reuse_address(bool enabled);
+
+    // Sets SO_RCVTIMEO and SO_SNDTIMEO so a stalled peer can't block the
+    // calling thread forever; receive()/send_all() then throw on timeout.
+    // A zero duration disables the timeout.
+    void set_timeout(std::chrono::milliseconds timeout);
     void bind(const std::string& host, std::uint16_t port);
     void listen(int backlog);
 

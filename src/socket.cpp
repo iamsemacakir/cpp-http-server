@@ -4,6 +4,7 @@
 #include <cerrno>
 #include <netinet/in.h>
 #include <sys/socket.h>
+#include <sys/time.h>
 #include <sys/types.h>
 #include <string>
 #include <system_error>
@@ -52,6 +53,19 @@ void Socket::set_reuse_address(bool enabled) {
     const int value = enabled ? 1 : 0;
     if (::setsockopt(fd_, SOL_SOCKET, SO_REUSEADDR, &value, sizeof(value)) < 0) {
         throw_errno("setsockopt(SO_REUSEADDR)");
+    }
+}
+
+void Socket::set_timeout(std::chrono::milliseconds timeout) {
+    const auto ms = timeout.count() > 0 ? timeout.count() : 0;
+    timeval value{};
+    value.tv_sec = static_cast<decltype(value.tv_sec)>(ms / 1000);
+    value.tv_usec = static_cast<decltype(value.tv_usec)>((ms % 1000) * 1000);
+    if (::setsockopt(fd_, SOL_SOCKET, SO_RCVTIMEO, &value, sizeof(value)) < 0) {
+        throw_errno("setsockopt(SO_RCVTIMEO)");
+    }
+    if (::setsockopt(fd_, SOL_SOCKET, SO_SNDTIMEO, &value, sizeof(value)) < 0) {
+        throw_errno("setsockopt(SO_SNDTIMEO)");
     }
 }
 

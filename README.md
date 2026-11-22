@@ -147,8 +147,25 @@ pool.shutdown();                             // drain the queue, join workers
 
 Exceptions escaping a `post()`ed task are logged instead of killing the
 worker. After `shutdown()` (also run by the destructor) new tasks are
-rejected with `ThreadPoolStopped`. Connections are still handled one at a
-time; moving them onto the pool is the next roadmap step.
+rejected with `ThreadPoolStopped`.
+
+## Concurrency
+
+The server accepts connections on the main thread and hands each one to a
+`ThreadPool` with one worker per CPU core, so a slow or idle client only
+occupies a single worker while everyone else keeps being served:
+
+```cpp
+http::ThreadPool pool;
+server.serve([&](http::Socket& client) { handle_connection(client); }, pool);
+```
+
+Every accepted socket gets a receive/send timeout (10 seconds by default,
+`TcpServer::set_client_timeout()`), after which a stalled client is dropped
+and logged as `timed out, closing connection`. The router, static file
+handler and error pages are read-only after startup, so workers share them
+without locking. `TcpServer::serve(handler)` without a pool still handles
+clients one at a time on the calling thread.
 
 ## Project structure
 

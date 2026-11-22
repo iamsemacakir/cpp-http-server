@@ -132,6 +132,24 @@ LOG_LEVEL=debug ./build/http_server
 In code, use the thread-safe helpers from `logger.hpp`:
 `http::log_info("served ", path, " in ", ms, " ms");`
 
+## Thread pool
+
+`thread_pool.hpp` provides `http::ThreadPool`, a fixed number of worker
+threads sharing a FIFO task queue:
+
+```cpp
+http::ThreadPool pool(4);                    // 0 = one worker per CPU core
+pool.post([] { /* fire and forget */ });
+std::future<int> sum = pool.submit([](int a, int b) { return a + b; }, 2, 3);
+sum.get();                                   // 5, exceptions are rethrown here
+pool.shutdown();                             // drain the queue, join workers
+```
+
+Exceptions escaping a `post()`ed task are logged instead of killing the
+worker. After `shutdown()` (also run by the destructor) new tasks are
+rejected with `ThreadPoolStopped`. Connections are still handled one at a
+time; moving them onto the pool is the next roadmap step.
+
 ## Project structure
 
 ```

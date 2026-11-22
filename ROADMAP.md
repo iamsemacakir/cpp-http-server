@@ -23,7 +23,7 @@ Development log of the server, one step at a time.
 - [x] 14. Logger with timestamps and levels
 
 ## Milestone 4 — Concurrency and robustness
-- [ ] 15. `ThreadPool` implementation
+- [x] 15. `ThreadPool` implementation
 - [ ] 16. Handle connections on the thread pool
 - [ ] 17. HTTP keep-alive connections
 - [ ] 18. Config file loading (port, document root, threads)

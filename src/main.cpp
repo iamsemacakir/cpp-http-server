@@ -16,6 +16,7 @@
 #include "router.hpp"
 #include "static_files.hpp"
 #include "tcp_server.hpp"
+#include "thread_pool.hpp"
 #include "version.hpp"
 
 namespace {
@@ -172,13 +173,20 @@ int main(int argc, char** argv) {
         const http::ErrorPages error_pages("errors");
         http::TcpServer server("0.0.0.0", parse_port(argc, argv));
         server.listen();
+
+        // Declared after everything the handler uses, so it is destroyed
+        // (draining in-flight connections) before the router and pages.
+        http::ThreadPool pool; // one worker per CPU core
         http::log_info(http::kServerName, " v", http::kServerVersion,
                        " listening on http://localhost:", server.port(), " (", router.size(),
                        " routes, serving ", static_files.root().string(), ", ",
-                       error_pages.template_count(), " error templates)");
-        server.serve([&router, &error_pages](http::Socket& client) {
-            handle_connection(router, error_pages, client);
-        });
+                       error_pages.template_count(), " error templates, ", pool.size(),
+                       " worker threads)");
+        server.serve(
+            [&router, &error_pages](http::Socket& client) {
+                handle_connection(router, error_pages, client);
+            },
+            pool);
     } catch (const std::exception& error) {
         http::log_error("fatal: ", error.what());
         return 1;

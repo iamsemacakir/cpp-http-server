@@ -33,6 +33,9 @@ cmake --build build
 ./build/http_server 3000 www   # port + document root (default: public)
 ```
 
+Settings are read from `server.conf` when it exists (see
+[Configuration](#configuration)).
+
 Then open http://localhost:8080 or run `curl -i http://localhost:8080/`.
 
 ## Usage
@@ -112,6 +115,41 @@ Templates live in `errors/` and are named after the status code
 without a template get a simple built-in page. Error responses that a
 handler builds itself (e.g. `/search` without `q`) are left untouched.
 
+## Configuration
+
+At startup the server reads `server.conf` from the current directory, or
+the file named by the `SERVER_CONFIG` environment variable (which then must
+exist). The file uses simple `key = value` lines; `#` and `;` start a
+comment line, values may be quoted, and every setting is optional:
+
+```ini
+host = 0.0.0.0
+port = 8080
+document_root = public        # relative paths start from the working directory
+error_pages = errors
+threads = 0                   # 0 = one worker per CPU core
+client_timeout_ms = 10000
+keep_alive = true             # true/false, yes/no, on/off, 1/0
+keep_alive_timeout_ms = 5000
+keep_alive_max_requests = 100
+log_level = info
+```
+
+Settings are applied in this order, later ones winning: built-in defaults,
+the config file, the `LOG_LEVEL` environment variable, then the positional
+`[port] [document_root]` arguments.
+
+```bash
+SERVER_CONFIG=/etc/cpp-http-server.conf ./build/http_server
+LOG_LEVEL=debug ./build/http_server   # also prints the effective configuration
+```
+
+Mistakes stop the server with the file and line of the problem, e.g.
+`fatal: server.conf:3: invalid port '70000' (expected a number from 0 to 65535)`.
+Unknown keys are rejected too, so a typo never goes unnoticed. In code,
+use `http::load_config(path)` or `http::parse_config(text)` from
+`config.hpp`, which return an `http::ServerConfig`.
+
 ## Logging
 
 Every request is written to an access log with a timestamp and level:
@@ -122,8 +160,8 @@ Every request is written to an access log with a timestamp and level:
 ```
 
 `DEBUG`/`INFO` lines go to stdout, `WARN`/`ERROR` to stderr. Set the level
-with the `LOG_LEVEL` environment variable (`debug`, `info`, `warn`, `error`,
-`off`; default `info`):
+with `log_level` in the config file or the `LOG_LEVEL` environment variable
+(`debug`, `info`, `warn`, `error`, `off`; default `info`):
 
 ```bash
 LOG_LEVEL=debug ./build/http_server
@@ -202,6 +240,7 @@ include/   public headers
 src/       implementation
 public/    static files served by the demo
 errors/    HTML templates for error pages
+server.conf  default configuration
 ```
 
 ## License

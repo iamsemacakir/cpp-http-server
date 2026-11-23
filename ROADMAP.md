@@ -26,7 +26,7 @@ Development log of the server, one step at a time.
 - [x] 15. `ThreadPool` implementation
 - [x] 16. Handle connections on the thread pool
 - [x] 17. HTTP keep-alive connections
-- [ ] 18. Config file loading (port, document root, threads)
+- [x] 18. Config file loading (port, document root, threads)
 - [ ] 19. Command-line arguments
 - [ ] 20. Graceful shutdown on SIGINT/SIGTERM
 

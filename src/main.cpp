@@ -4,9 +4,11 @@
 #include <cstdio>
 #include <cstdlib>
 #include <exception>
+#include <filesystem>
 #include <stdexcept>
 #include <string>
 
+#include "config.hpp"
 #include "connection.hpp"
 #include "error_pages.hpp"
 #include "http_request.hpp"
@@ -20,28 +22,50 @@
 
 namespace {
 
-std::uint16_t parse_port(int argc, char** argv) {
-    if (argc < 2) {
-        return 8080;
-    }
-    const int port = std::stoi(argv[1]);
-    if (port < 0 || port > 65535) {
+constexpr const char* kDefaultConfigFile = "server.conf";
+
+std::uint16_t parse_port(const std::string& text) {
+    std::size_t consumed = 0;
+    const int port = std::stoi(text, &consumed);
+    if (consumed != text.size() || port < 0 || port > 65535) {
         throw std::out_of_range("port must be between 0 and 65535");
     }
     return static_cast<std::uint16_t>(port);
 }
 
-// LOG_LEVEL=debug|info|warn|error|off (default: info).
-void configure_logging() {
-    const char* value = std::getenv("LOG_LEVEL");
-    if (value == nullptr) {
-        return;
-    }
-    if (const auto level = http::log_level_from_string(value)) {
-        http::Logger::instance().set_level(*level);
+// Builds the runtime configuration, later sources overriding earlier ones:
+//   1. built-in defaults
+//   2. the config file: $SERVER_CONFIG if set (must exist), otherwise
+//      ./server.conf when present
+//   3. LOG_LEVEL=debug|info|warn|error|off from the environment
+//   4. positional arguments: [port] [document_root]
+http::ServerConfig load_configuration(int argc, char** argv, std::string& config_source) {
+    http::ServerConfig config;
+    if (const char* path = std::getenv("SERVER_CONFIG"); path != nullptr && *path != '\0') {
+        config = http::load_config(path);
+        config_source = path;
+    } else if (std::filesystem::is_regular_file(kDefaultConfigFile)) {
+        config = http::load_config(kDefaultConfigFile);
+        config_source = kDefaultConfigFile;
     } else {
-        http::log_warn("unknown LOG_LEVEL '", value, "', using info");
+        config_source = "defaults";
     }
+
+    if (const char* value = std::getenv("LOG_LEVEL"); value != nullptr) {
+        if (const auto level = http::log_level_from_string(value)) {
+            config.log_level = *level;
+        } else {
+            http::log_warn("unknown LOG_LEVEL '", value, "', ignoring it");
+        }
+    }
+
+    if (argc >= 2) {
+        config.port = parse_port(argv[1]);
+    }
+    if (argc >= 3) {
+        config.document_root = argv[2];
+    }
+    return config;
 }
 
 http::Router build_router(const http::StaticFiles& static_files) {
@@ -144,29 +168,39 @@ http::HttpResponse handle_request(const http::Router& router,
 
 int main(int argc, char** argv) {
     std::signal(SIGPIPE, SIG_IGN);
-    configure_logging();
 
     try {
-        const http::StaticFiles static_files(argc >= 3 ? argv[2] : "public");
+        std::string config_source;
+        const http::ServerConfig config = load_configuration(argc, argv, config_source);
+        http::Logger::instance().set_level(config.log_level);
+        std::string effective = http::to_config_string(config);
+        effective.pop_back(); // trailing newline
+        http::log_debug("effective configuration (", config_source, "):\n", effective);
+
+        const http::StaticFiles static_files(config.document_root);
         const http::Router router = build_router(static_files);
-        const http::ErrorPages error_pages("errors");
-        http::TcpServer server("0.0.0.0", parse_port(argc, argv));
+        const http::ErrorPages error_pages(config.error_pages);
+        http::TcpServer server(config.host, config.port);
+        server.set_client_timeout(config.client_timeout);
         server.listen();
 
         // Declared after everything the handler uses, so it is destroyed
         // (draining in-flight connections) before the router and pages.
-        http::ThreadPool pool; // one worker per CPU core
-        http::log_info(http::kServerName, " v", http::kServerVersion,
-                       " listening on http://localhost:", server.port(), " (", router.size(),
-                       " routes, serving ", static_files.root().string(), ", ",
+        http::ThreadPool pool(config.threads);
+        http::log_info(http::kServerName, " v", http::kServerVersion, " listening on http://",
+                       config.host, ':', server.port(), " (config: ", config_source, ", ",
+                       router.size(), " routes, serving ", static_files.root().string(), ", ",
                        error_pages.template_count(), " error templates, ", pool.size(),
                        " worker threads)");
         server.serve(
-            [&router, &error_pages](http::Socket& client) {
+            [&router, &error_pages, &config](http::Socket& client) {
                 const std::string peer = client.peer_address();
-                http::serve_connection(client, [&](const http::HttpRequest& request) {
-                    return handle_request(router, error_pages, request, peer);
-                });
+                http::serve_connection(
+                    client,
+                    [&](const http::HttpRequest& request) {
+                        return handle_request(router, error_pages, request, peer);
+                    },
+                    config.keep_alive);
             },
             pool);
     } catch (const std::exception& error) {

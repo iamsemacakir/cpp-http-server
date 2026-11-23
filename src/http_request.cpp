@@ -155,6 +155,26 @@ std::size_t HttpRequest::content_length() const {
     return length;
 }
 
+bool HttpRequest::keep_alive() const {
+    bool close = false;
+    bool keep = false;
+    if (const auto value = header("Connection")) {
+        // The header is a comma-separated list of case-insensitive tokens.
+        std::string_view rest = *value;
+        while (!rest.empty()) {
+            const auto comma = rest.find(',');
+            const std::string token = to_lower(trim(rest.substr(0, comma)));
+            close = close || token == "close";
+            keep = keep || token == "keep-alive";
+            rest = comma == std::string_view::npos ? std::string_view{} : rest.substr(comma + 1);
+        }
+    }
+    if (close) {
+        return false;
+    }
+    return version == "HTTP/1.1" || keep;
+}
+
 HttpRequest parse_request_head(std::string_view head) {
     auto line_end = head.find("\r\n");
     HttpRequest request = parse_request_line(head.substr(0, line_end));

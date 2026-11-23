@@ -56,6 +56,11 @@ struct HttpRequest {
 
     // Value of Content-Length, or 0 if absent. Throws ParseError if invalid.
     std::size_t content_length() const;
+
+    // Whether the client wants the connection kept open after the response:
+    // the default for HTTP/1.1 unless it sends "Connection: close", and only
+    // with an explicit "Connection: keep-alive" for HTTP/1.0.
+    bool keep_alive() const;
 };
 
 // Parses a request line such as "GET /index.html HTTP/1.1" (no CRLF).

@@ -157,7 +157,7 @@ occupies a single worker while everyone else keeps being served:
 
 ```cpp
 http::ThreadPool pool;
-server.serve([&](http::Socket& client) { handle_connection(client); }, pool);
+server.serve([&](http::Socket& client) { http::serve_connection(client, handle_request); }, pool);
 ```
 
 Every accepted socket gets a receive/send timeout (10 seconds by default,
@@ -166,6 +166,34 @@ and logged as `timed out, closing connection`. The router, static file
 handler and error pages are read-only after startup, so workers share them
 without locking. `TcpServer::serve(handler)` without a pool still handles
 clients one at a time on the calling thread.
+
+## Keep-alive
+
+Connections are persistent by default, so a browser loading a page and its
+stylesheet reuses a single TCP connection. `http::serve_connection()` keeps
+reading requests from the same socket until:
+
+- the client sends `Connection: close` (HTTP/1.0 clients must instead opt in
+  with `Connection: keep-alive`),
+- the connection stays idle longer than the keep-alive timeout (5 seconds),
+- 100 requests have been served on it, or
+- a request is malformed (`400`/`413` responses always close).
+
+Every response says which way it went:
+
+```text
+Connection: keep-alive
+Keep-Alive: timeout=5, max=99
+```
+
+Pipelined requests (several sent back to back without waiting) are answered
+in order, because `RequestReader` keeps any bytes past the current request
+for the next one. Limits are configurable through `http::KeepAliveOptions`
+(`enabled`, `idle_timeout`, `max_requests`). Try it with:
+
+```bash
+curl -v http://localhost:8080/hello http://localhost:8080/health   # "Re-using existing connection"
+```
 
 ## Project structure
 

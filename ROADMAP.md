@@ -25,7 +25,7 @@ Development log of the server, one step at a time.
 ## Milestone 4 — Concurrency and robustness
 - [x] 15. `ThreadPool` implementation
 - [x] 16. Handle connections on the thread pool
-- [ ] 17. HTTP keep-alive connections
+- [x] 17. HTTP keep-alive connections
 - [ ] 18. Config file loading (port, document root, threads)
 - [ ] 19. Command-line arguments
 - [ ] 20. Graceful shutdown on SIGINT/SIGTERM

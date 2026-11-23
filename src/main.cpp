@@ -4,15 +4,14 @@
 #include <cstdio>
 #include <cstdlib>
 #include <exception>
-#include <optional>
 #include <stdexcept>
 #include <string>
 
+#include "connection.hpp"
 #include "error_pages.hpp"
 #include "http_request.hpp"
 #include "http_response.hpp"
 #include "logger.hpp"
-#include "request_reader.hpp"
 #include "router.hpp"
 #include "static_files.hpp"
 #include "tcp_server.hpp"
@@ -116,39 +115,19 @@ http::Router build_router(const http::StaticFiles& static_files) {
     return router;
 }
 
-void send(http::Socket& client, http::HttpResponse response, bool head_only = false) {
-    response.set_header("Connection", "close");
-    client.send_all(response.serialize(head_only));
-}
-
-void handle_connection(const http::Router& router, const http::ErrorPages& error_pages,
-                       http::Socket& client) {
-    const std::string peer = client.peer_address();
-    std::optional<http::HttpRequest> request;
-    try {
-        request = http::read_request(client);
-    } catch (const http::RequestTooLarge& error) {
-        http::log_warn(peer, " request too large: ", error.what());
-        send(client, http::HttpResponse::error(http::status::kPayloadTooLarge, error.what()));
-        return;
-    } catch (const http::ParseError& error) {
-        http::log_warn(peer, " bad request: ", error.what());
-        send(client, http::HttpResponse::error(http::status::kBadRequest, error.what()));
-        return;
-    }
-    if (!request) {
-        return;
-    }
-
+// Routes one request, renders error pages and writes the access log line.
+http::HttpResponse handle_request(const http::Router& router,
+                                  const http::ErrorPages& error_pages,
+                                  const http::HttpRequest& request, const std::string& peer) {
     const auto started = std::chrono::steady_clock::now();
     http::HttpResponse response;
     try {
-        response = router.route(*request);
+        response = router.route(request);
     } catch (const std::exception& error) {
-        http::log_error("handler error for ", request->target, ": ", error.what());
+        http::log_error("handler error for ", request.target, ": ", error.what());
         response = http::HttpResponse::error(http::status::kInternalServerError);
     }
-    error_pages.apply(*request, response);
+    error_pages.apply(request, response);
 
     const std::chrono::duration<double, std::milli> elapsed =
         std::chrono::steady_clock::now() - started;
@@ -156,9 +135,9 @@ void handle_connection(const http::Router& router, const http::ErrorPages& error
     // Access log: "127.0.0.1:51234 GET /index.html -> 200 (501 B, 0.21 ms)"
     char duration[32];
     std::snprintf(duration, sizeof(duration), "%.2f ms", elapsed.count());
-    http::log_info(peer, ' ', http::to_string(request->method), ' ', request->target, " -> ",
+    http::log_info(peer, ' ', http::to_string(request.method), ' ', request.target, " -> ",
                    response.status(), " (", response.body().size(), " B, ", duration, ')');
-    send(client, std::move(response), request->method == http::Method::Head);
+    return response;
 }
 
 } // namespace
@@ -184,7 +163,10 @@ int main(int argc, char** argv) {
                        " worker threads)");
         server.serve(
             [&router, &error_pages](http::Socket& client) {
-                handle_connection(router, error_pages, client);
+                const std::string peer = client.peer_address();
+                http::serve_connection(client, [&](const http::HttpRequest& request) {
+                    return handle_request(router, error_pages, request, peer);
+                });
             },
             pool);
     } catch (const std::exception& error) {

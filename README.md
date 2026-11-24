@@ -28,13 +28,15 @@ Linux and macOS are supported (POSIX sockets).
 ```bash
 cmake -S . -B build
 cmake --build build
-./build/http_server        # listens on port 8080
-./build/http_server 3000   # or pick a port
-./build/http_server 3000 www   # port + document root (default: public)
+./build/http_server                  # listens on port 8080
+./build/http_server --port 3000      # or pick a port
+./build/http_server -p 3000 -r www   # port + document root (default: public)
+./build/http_server --help           # all options
 ```
 
 Settings are read from `server.conf` when it exists (see
-[Configuration](#configuration)).
+[Configuration](#configuration)) and can be overridden on the
+[command line](#command-line).
 
 Then open http://localhost:8080 or run `curl -i http://localhost:8080/`.
 
@@ -136,11 +138,13 @@ log_level = info
 ```
 
 Settings are applied in this order, later ones winning: built-in defaults,
-the config file, the `LOG_LEVEL` environment variable, then the positional
-`[port] [document_root]` arguments.
+the config file, the `LOG_LEVEL` environment variable, then
+[command-line options](#command-line). `--config FILE` picks the file
+explicitly and takes priority over `SERVER_CONFIG`.
 
 ```bash
 SERVER_CONFIG=/etc/cpp-http-server.conf ./build/http_server
+./build/http_server --config staging.conf
 LOG_LEVEL=debug ./build/http_server   # also prints the effective configuration
 ```
 
@@ -149,6 +153,47 @@ Mistakes stop the server with the file and line of the problem, e.g.
 Unknown keys are rejected too, so a typo never goes unnoticed. In code,
 use `http::load_config(path)` or `http::parse_config(text)` from
 `config.hpp`, which return an `http::ServerConfig`.
+
+## Command line
+
+```text
+Usage: http_server [options] [port] [document_root]
+
+  -c, --config FILE         read settings from FILE (default: ./server.conf)
+  -H, --host ADDR           address to bind to (default: 0.0.0.0)
+  -p, --port PORT           port to listen on, 0 = any free port (default: 8080)
+  -r, --root DIR            document root for static files (default: public)
+  -e, --error-pages DIR     directory with error page templates
+  -t, --threads N           worker threads, 0 = one per CPU core
+  -l, --log-level LEVEL     debug, info, warn, error or off
+      --no-keep-alive       close every connection after one response
+      --print-config        print the effective configuration and exit
+  -h, --help                show this help and exit
+  -V, --version             show the version and exit
+```
+
+Values can be written as `--port 3000`, `--port=3000`, `-p 3000` or
+`-p3000`, and `--` ends option parsing. Only the options you pass override
+the config file. The older positional form `http_server 3000 www` still
+works, but giving the same setting both ways is an error.
+
+`--print-config` is handy to check what a combination of config file,
+environment and options resolves to:
+
+```bash
+./build/http_server -p 9090 -t 4 --no-keep-alive --print-config
+```
+
+Invalid arguments print a short message and exit with status `2`:
+
+```text
+http_server: invalid value '70000' for --port (expected a number from 0 to 65535)
+Try 'http_server --help' for more information.
+```
+
+In code, `http::parse_cli(argc, argv)` from `cli.hpp` returns an
+`http::CliOptions`, and `http::apply_cli(options, config)` layers it on top
+of a `ServerConfig`.
 
 ## Logging
 
@@ -160,11 +205,12 @@ Every request is written to an access log with a timestamp and level:
 ```
 
 `DEBUG`/`INFO` lines go to stdout, `WARN`/`ERROR` to stderr. Set the level
-with `log_level` in the config file or the `LOG_LEVEL` environment variable
-(`debug`, `info`, `warn`, `error`, `off`; default `info`):
+with `log_level` in the config file, the `LOG_LEVEL` environment variable
+or `--log-level` (`debug`, `info`, `warn`, `error`, `off`; default `info`):
 
 ```bash
 LOG_LEVEL=debug ./build/http_server
+./build/http_server --log-level warn
 ```
 
 In code, use the thread-safe helpers from `logger.hpp`:

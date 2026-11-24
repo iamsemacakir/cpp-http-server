@@ -27,7 +27,7 @@ Development log of the server, one step at a time.
 - [x] 16. Handle connections on the thread pool
 - [x] 17. HTTP keep-alive connections
 - [x] 18. Config file loading (port, document root, threads)
-- [ ] 19. Command-line arguments
+- [x] 19. Command-line arguments
 - [ ] 20. Graceful shutdown on SIGINT/SIGTERM
 
 ## Milestone 5 — Quality and polish

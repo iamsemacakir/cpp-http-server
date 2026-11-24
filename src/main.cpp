@@ -1,13 +1,14 @@
 #include <chrono>
 #include <csignal>
-#include <cstdint>
 #include <cstdio>
 #include <cstdlib>
 #include <exception>
 #include <filesystem>
+#include <iostream>
 #include <stdexcept>
 #include <string>
 
+#include "cli.hpp"
 #include "config.hpp"
 #include "connection.hpp"
 #include "error_pages.hpp"
@@ -24,24 +25,20 @@ namespace {
 
 constexpr const char* kDefaultConfigFile = "server.conf";
 
-std::uint16_t parse_port(const std::string& text) {
-    std::size_t consumed = 0;
-    const int port = std::stoi(text, &consumed);
-    if (consumed != text.size() || port < 0 || port > 65535) {
-        throw std::out_of_range("port must be between 0 and 65535");
-    }
-    return static_cast<std::uint16_t>(port);
-}
-
 // Builds the runtime configuration, later sources overriding earlier ones:
 //   1. built-in defaults
-//   2. the config file: $SERVER_CONFIG if set (must exist), otherwise
-//      ./server.conf when present
+//   2. the config file: --config FILE, else $SERVER_CONFIG if set (both must
+//      exist), otherwise ./server.conf when present
 //   3. LOG_LEVEL=debug|info|warn|error|off from the environment
-//   4. positional arguments: [port] [document_root]
-http::ServerConfig load_configuration(int argc, char** argv, std::string& config_source) {
+//   4. command-line options (see `http_server --help`)
+http::ServerConfig load_configuration(const http::CliOptions& options,
+                                      std::string& config_source) {
     http::ServerConfig config;
-    if (const char* path = std::getenv("SERVER_CONFIG"); path != nullptr && *path != '\0') {
+    if (options.config_file) {
+        config = http::load_config(*options.config_file);
+        config_source = options.config_file->string();
+    } else if (const char* path = std::getenv("SERVER_CONFIG");
+               path != nullptr && *path != '\0') {
         config = http::load_config(path);
         config_source = path;
     } else if (std::filesystem::is_regular_file(kDefaultConfigFile)) {
@@ -59,12 +56,7 @@ http::ServerConfig load_configuration(int argc, char** argv, std::string& config
         }
     }
 
-    if (argc >= 2) {
-        config.port = parse_port(argv[1]);
-    }
-    if (argc >= 3) {
-        config.document_root = argv[2];
-    }
+    http::apply_cli(options, config);
     return config;
 }
 
@@ -168,10 +160,33 @@ http::HttpResponse handle_request(const http::Router& router,
 
 int main(int argc, char** argv) {
     std::signal(SIGPIPE, SIG_IGN);
+    const char* program = argc > 0 ? argv[0] : http::kServerName;
+
+    http::CliOptions options;
+    try {
+        options = http::parse_cli(argc, argv);
+    } catch (const http::CliError& error) {
+        std::cerr << program << ": " << error.what() << '\n'
+                  << "Try '" << program << " --help' for more information.\n";
+        return 2;
+    }
+    if (options.show_help) {
+        std::cout << http::cli_usage(program);
+        return 0;
+    }
+    if (options.show_version) {
+        std::cout << http::kServerName << ' ' << http::kServerVersion << '\n';
+        return 0;
+    }
 
     try {
         std::string config_source;
-        const http::ServerConfig config = load_configuration(argc, argv, config_source);
+        const http::ServerConfig config = load_configuration(options, config_source);
+        if (options.print_config) {
+            std::cout << "# effective configuration (" << config_source << ")\n"
+                      << http::to_config_string(config);
+            return 0;
+        }
         http::Logger::instance().set_level(config.log_level);
         std::string effective = http::to_config_string(config);
         effective.pop_back(); // trailing newline

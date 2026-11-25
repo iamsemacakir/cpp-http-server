@@ -63,12 +63,21 @@ void TcpServer::listen(int backlog) {
     listener_.bind(host_, port_);
     listener_.listen(backlog);
     port_ = listener_.local_port(); // resolves port 0 to the real port
-    running_ = true;
+    running_ = !stop_.requested(); // stop() may already have been called
 }
 
 Socket TcpServer::accept_client() {
     Socket client;
     try {
+        // Wait on the listener and the stop signal together, so stop() from
+        // another thread (e.g. a signal watcher) interrupts the accept loop.
+        if (wait_readable(listener_, std::chrono::milliseconds{0}, &stop_) !=
+            WaitResult::Ready) {
+            return Socket();
+        }
+        if (!running_) {
+            return Socket();
+        }
         client = listener_.accept();
         client.set_timeout(client_timeout_);
     } catch (const std::system_error& error) {
@@ -89,6 +98,7 @@ void TcpServer::serve(const ConnectionHandler& handler) {
         const ActiveGuard guard(active_);
         run_handler(handler, client);
     }
+    close_listener();
 }
 
 void TcpServer::serve(ConnectionHandler handler, ThreadPool& pool) {
@@ -115,11 +125,19 @@ void TcpServer::serve(ConnectionHandler handler, ThreadPool& pool) {
             break;
         }
     }
+    close_listener();
 }
 
 void TcpServer::stop() noexcept {
     running_ = false;
+    stop_.request();
+}
+
+void TcpServer::close_listener() noexcept {
+    // New clients are now refused by the OS instead of piling up in the
+    // backlog while in-flight connections drain.
     listener_.close();
+    log_debug("listener on port ", port_, " closed");
 }
 
 } // namespace http

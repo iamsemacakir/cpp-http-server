@@ -16,6 +16,7 @@
 #include "http_response.hpp"
 #include "logger.hpp"
 #include "router.hpp"
+#include "signal_watcher.hpp"
 #include "static_files.hpp"
 #include "tcp_server.hpp"
 #include "thread_pool.hpp"
@@ -199,6 +200,16 @@ int main(int argc, char** argv) {
         server.set_client_timeout(config.client_timeout);
         server.listen();
 
+        // SIGINT (Ctrl+C) and SIGTERM (docker stop, systemd, kill) stop the
+        // accept loop; a second signal exits immediately. Created before the
+        // pool so the worker threads inherit the blocked signal mask.
+        const http::SignalWatcher signals({SIGINT, SIGTERM}, [&server](int signal) {
+            http::log_info("received ", http::signal_name(signal),
+                           ", shutting down gracefully (", server.active_connections(),
+                           " active connection(s), send it again to force quit)");
+            server.stop();
+        });
+
         // Declared after everything the handler uses, so it is destroyed
         // (draining in-flight connections) before the router and pages.
         http::ThreadPool pool(config.threads);
@@ -208,16 +219,29 @@ int main(int argc, char** argv) {
                        error_pages.template_count(), " error templates, ", pool.size(),
                        " worker threads)");
         server.serve(
-            [&router, &error_pages, &config](http::Socket& client) {
+            [&router, &error_pages, &config, &server](http::Socket& client) {
                 const std::string peer = client.peer_address();
                 http::serve_connection(
                     client,
                     [&](const http::HttpRequest& request) {
                         return handle_request(router, error_pages, request, peer);
                     },
-                    config.keep_alive);
+                    config.keep_alive, {}, &server.stop_signal());
             },
             pool);
+
+        // The listener is closed now. Idle keep-alive connections wake up and
+        // close at once; requests in progress are finished before we exit.
+        const auto drain_started = std::chrono::steady_clock::now();
+        if (const std::size_t active = server.active_connections(); active > 0) {
+            http::log_info("waiting for ", active, " connection(s) to finish");
+        }
+        pool.shutdown();
+        const std::chrono::duration<double, std::milli> drained =
+            std::chrono::steady_clock::now() - drain_started;
+        char duration[32];
+        std::snprintf(duration, sizeof(duration), "%.0f ms", drained.count());
+        http::log_info("server stopped (drained in ", duration, ")");
     } catch (const std::exception& error) {
         http::log_error("fatal: ", error.what());
         return 1;

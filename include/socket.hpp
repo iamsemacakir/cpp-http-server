@@ -31,6 +31,8 @@ public:
     // calling thread forever; receive()/send_all() then throw on timeout.
     // A zero duration disables the timeout.
     void set_timeout(std::chrono::milliseconds timeout);
+    // The timeout last set with set_timeout() (zero = none).
+    std::chrono::milliseconds timeout() const noexcept { return timeout_; }
     void bind(const std::string& host, std::uint16_t port);
     void listen(int backlog);
 
@@ -58,6 +60,7 @@ public:
 
 private:
     int fd_ = -1;
+    std::chrono::milliseconds timeout_{0};
 };
 
 } // namespace http

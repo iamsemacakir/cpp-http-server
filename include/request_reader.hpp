@@ -27,6 +27,9 @@ public:
     // for invalid requests and std::system_error on a timeout mid-request.
     std::optional<HttpRequest> next();
 
+    // True when bytes of a further (pipelined) request are already buffered.
+    bool has_buffered_data() const noexcept { return !buffer_.empty(); }
+
 private:
     // Appends one chunk from the socket; returns false on end of stream.
     bool fill();

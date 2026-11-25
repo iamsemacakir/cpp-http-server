@@ -8,6 +8,7 @@
 #include <string>
 
 #include "socket.hpp"
+#include "stop_signal.hpp"
 
 namespace http {
 
@@ -37,7 +38,15 @@ public:
     // pool must outlive any connection still in flight.
     void serve(ConnectionHandler handler, ThreadPool& pool);
 
+    // Makes serve() stop accepting, close the listening socket and return.
+    // Connections already accepted are left to finish; handlers can watch
+    // stop_signal() to wind down idle keep-alive connections. Safe to call
+    // from any thread and more than once.
     void stop() noexcept;
+    bool stopping() const noexcept { return stop_.requested(); }
+
+    // Requested by stop(); pass it to serve_connection() for graceful shutdown.
+    const StopSignal& stop_signal() const noexcept { return stop_; }
 
     void set_client_timeout(std::chrono::milliseconds timeout) noexcept {
         client_timeout_ = timeout;
@@ -51,13 +60,15 @@ public:
     std::uint16_t port() const noexcept { return port_; }
 
 private:
-    // Blocks for the next client; returns an invalid socket when the
-    // listener was stopped or accept() failed (the failure is logged).
+    // Blocks for the next client; returns an invalid socket when stop() was
+    // called or accept() failed (the failure is logged).
     Socket accept_client();
+    void close_listener() noexcept;
 
     std::string host_;
     std::uint16_t port_;
     Socket listener_;
+    StopSignal stop_;
     std::atomic<bool> running_{false};
     std::atomic<std::size_t> active_{0};
     std::chrono::milliseconds client_timeout_{kDefaultClientTimeout};

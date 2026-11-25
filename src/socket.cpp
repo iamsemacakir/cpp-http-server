@@ -31,12 +31,15 @@ Socket::Socket(int fd) noexcept : fd_(fd) {}
 
 Socket::~Socket() { close(); }
 
-Socket::Socket(Socket&& other) noexcept : fd_(std::exchange(other.fd_, -1)) {}
+Socket::Socket(Socket&& other) noexcept
+    : fd_(std::exchange(other.fd_, -1)),
+      timeout_(std::exchange(other.timeout_, std::chrono::milliseconds{0})) {}
 
 Socket& Socket::operator=(Socket&& other) noexcept {
     if (this != &other) {
         close();
         fd_ = std::exchange(other.fd_, -1);
+        timeout_ = std::exchange(other.timeout_, std::chrono::milliseconds{0});
     }
     return *this;
 }
@@ -67,6 +70,7 @@ void Socket::set_timeout(std::chrono::milliseconds timeout) {
     if (::setsockopt(fd_, SOL_SOCKET, SO_SNDTIMEO, &value, sizeof(value)) < 0) {
         throw_errno("setsockopt(SO_SNDTIMEO)");
     }
+    timeout_ = std::chrono::milliseconds{ms};
 }
 
 void Socket::bind(const std::string& host, std::uint16_t port) {
@@ -154,6 +158,7 @@ void Socket::close() noexcept {
     if (fd_ >= 0) {
         ::close(fd_);
         fd_ = -1;
+        timeout_ = std::chrono::milliseconds{0};
     }
 }
 

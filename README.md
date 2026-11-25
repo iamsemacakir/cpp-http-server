@@ -15,7 +15,7 @@ clients concurrently.
 - Router with path parameters (`/users/:id`) and query strings
 - Static file serving with MIME types and path-traversal protection
 - Thread pool for concurrent connections, keep-alive
-- Config file, logging, graceful shutdown
+- Config file, logging, graceful shutdown on SIGINT/SIGTERM
 - Unit tests and CI
 
 See [ROADMAP.md](ROADMAP.md) for progress.
@@ -278,6 +278,37 @@ for the next one. Limits are configurable through `http::KeepAliveOptions`
 ```bash
 curl -v http://localhost:8080/hello http://localhost:8080/health   # "Re-using existing connection"
 ```
+
+## Graceful shutdown
+
+`Ctrl+C` (SIGINT) or `kill` / `docker stop` / systemd (SIGTERM) shut the
+server down cleanly instead of cutting connections off mid-response:
+
+1. the listening socket is closed, so new clients are refused right away;
+2. idle keep-alive connections are closed immediately;
+3. requests that are already being received or handled are finished and
+   answered with `Connection: close`;
+4. the thread pool drains and the process exits with status `0`.
+
+```text
+2026-11-25 09:45:11.809 [INFO ] received SIGINT, shutting down gracefully (2 active connection(s), send it again to force quit)
+2026-11-25 09:45:11.809 [INFO ] waiting for 1 connection(s) to finish
+2026-11-25 09:45:12.110 [INFO ] 127.0.0.1:49246 POST /echo -> 200 (5 B, 0.04 ms)
+2026-11-25 09:45:12.110 [INFO ] server stopped (drained in 300 ms)
+```
+
+Sending the signal a second time exits immediately with status `128 + signal`
+(`130` for SIGINT). A stalled client can delay the drain by at most the
+client timeout.
+
+Under the hood, `http::SignalWatcher` (`signal_watcher.hpp`) blocks the
+signals in every thread and receives them with `sigwait()` on a dedicated
+thread, so the callback is ordinary code that may log and lock.
+`TcpServer::stop()` requests an `http::StopSignal` (`stop_signal.hpp`), a
+flag backed by a socket pair that the accept loop and idle connections
+`poll()` on together with their own socket. Pass it to
+`serve_connection(client, handler, keep_alive, limits, &server.stop_signal())`
+to make connections shutdown-aware.
 
 ## Project structure
 

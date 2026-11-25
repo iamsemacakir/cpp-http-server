@@ -28,7 +28,7 @@ Development log of the server, one step at a time.
 - [x] 17. HTTP keep-alive connections
 - [x] 18. Config file loading (port, document root, threads)
 - [x] 19. Command-line arguments
-- [ ] 20. Graceful shutdown on SIGINT/SIGTERM
+- [x] 20. Graceful shutdown on SIGINT/SIGTERM
 
 ## Milestone 5 — Quality and polish
 - [ ] 21. Minimal test framework + request parser tests

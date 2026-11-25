@@ -29,13 +29,27 @@ void send_response(Socket& client, HttpResponse response, bool keep_open,
 } // namespace
 
 std::size_t serve_connection(Socket& client, const RequestHandler& handler,
-                             const KeepAliveOptions& keep_alive, const RequestLimits& limits) {
+                             const KeepAliveOptions& keep_alive, const RequestLimits& limits,
+                             const StopSignal* stop) {
     RequestReader reader(client, limits);
     const std::size_t max_requests =
         keep_alive.enabled && keep_alive.max_requests > 0 ? keep_alive.max_requests : 1;
     std::size_t served = 0;
 
     while (served < max_requests) {
+        // Wait for the next request in a way a shutdown can interrupt. Bytes
+        // of a pipelined request that already arrived are served regardless.
+        if (stop != nullptr && !reader.has_buffered_data()) {
+            const WaitResult wait = wait_readable(client, client.timeout(), stop);
+            if (wait == WaitResult::Stopped) {
+                log_debug(client.peer_address(), " idle, closing for shutdown");
+                break;
+            }
+            if (wait == WaitResult::Timeout) {
+                break; // idle for longer than the timeout
+            }
+        }
+
         std::optional<HttpRequest> request;
         try {
             request = reader.next();
@@ -55,9 +69,13 @@ std::size_t serve_connection(Socket& client, const RequestHandler& handler,
         }
 
         ++served;
+        HttpResponse response = handler(*request);
+        // Checked after the handler ran, so a shutdown that started meanwhile
+        // already shows up as "Connection: close" on this response.
+        const bool stopping = stop != nullptr && stop->requested();
         const bool keep_open =
-            keep_alive.enabled && served < max_requests && request->keep_alive();
-        send_response(client, handler(*request), keep_open, keep_alive, max_requests - served,
+            keep_alive.enabled && served < max_requests && request->keep_alive() && !stopping;
+        send_response(client, std::move(response), keep_open, keep_alive, max_requests - served,
                       request->method == Method::Head);
         if (!keep_open) {
             break;

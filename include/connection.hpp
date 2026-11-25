@@ -8,6 +8,7 @@
 #include "http_response.hpp"
 #include "request_reader.hpp"
 #include "socket.hpp"
+#include "stop_signal.hpp"
 
 namespace http {
 
@@ -26,9 +27,14 @@ using RequestHandler = std::function<HttpResponse(const HttpRequest&)>;
 // connection stays open for further requests until the client asks to close
 // it, goes idle for longer than idle_timeout, hits max_requests, or sends a
 // malformed request. Every response carries a matching Connection header.
-// Returns the number of requests answered.
+//
+// When `stop` is given and gets requested (graceful shutdown), a connection
+// waiting for its next request is closed right away, while a request that is
+// already being received or handled is completed and answered with
+// `Connection: close`. Returns the number of requests answered.
 std::size_t serve_connection(Socket& client, const RequestHandler& handler,
                              const KeepAliveOptions& keep_alive = {},
-                             const RequestLimits& limits = {});
+                             const RequestLimits& limits = {},
+                             const StopSignal* stop = nullptr);
 
 } // namespace http

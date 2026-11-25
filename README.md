@@ -310,11 +310,55 @@ flag backed by a socket pair that the accept loop and idle connections
 `serve_connection(client, handler, keep_alive, limits, &server.stop_signal())`
 to make connections shutdown-aware.
 
+## Tests
+
+The unit tests use a small built-in test framework (`tests/test_framework.hpp`),
+so they need nothing beyond the compiler. They are built together with the
+server and can be run directly or through CTest:
+
+```bash
+cmake -S . -B build && cmake --build build
+./build/unit_tests                 # run every test
+./build/unit_tests RequestReader   # only tests whose name contains the text
+./build/unit_tests --list          # list test names
+ctest --test-dir build             # same tests via CTest
+```
+
+```text
+[  OK  ] parses a simple request line
+[  OK  ] rejects unsupported HTTP versions
+...
+26 test(s), 26 passed, 0 failed (1 ms)
+```
+
+Writing a test:
+
+```cpp
+#include "test_framework.hpp"
+
+TEST_CASE("splits the query string from the path") {
+    const auto request = http::parse_request_line("GET /search?q=a+b HTTP/1.1");
+    CHECK_EQ(request.path, "/search");
+    CHECK_EQ(request.query_param("q"), "a b");
+    CHECK_THROWS_AS(http::parse_request_line("GET / HTTP/2.0"), http::ParseError);
+}
+```
+
+`CHECK`, `CHECK_FALSE`, `CHECK_EQ`, `CHECK_THROWS_AS` and `CHECK_NOTHROW`
+record a failure and keep going; `REQUIRE` and `REQUIRE_EQ` stop the test.
+Failed `CHECK_EQ`s print both values. The runner exits with `1` if any test
+fails. Any `tests/*.cpp` file is picked up automatically; pass
+`-DHTTP_SERVER_BUILD_TESTS=OFF` to CMake to skip building them.
+
+The server code is compiled once into the `http_core` static library, which
+both `http_server` and `unit_tests` link against.
+
 ## Project structure
 
 ```
 include/   public headers
 src/       implementation
+tests/     unit tests and the test framework
 public/    static files served by the demo
 errors/    HTML templates for error pages
 server.conf  default configuration

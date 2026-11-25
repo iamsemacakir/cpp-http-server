@@ -15,10 +15,29 @@ else()
     add_compile_options(-Wall -Wextra -Wpedantic)
 endif()
 
-file(GLOB_RECURSE SERVER_SOURCES CONFIGURE_DEPENDS src/*.cpp)
+option(HTTP_SERVER_BUILD_TESTS "Build the unit tests" ON)
 
-add_executable(http_server ${SERVER_SOURCES})
-target_include_directories(http_server PRIVATE include)
+# Everything except main.cpp goes into a library, so the server executable
+# and the unit tests share the same compiled code.
+file(GLOB_RECURSE SERVER_SOURCES CONFIGURE_DEPENDS src/*.cpp)
+list(REMOVE_ITEM SERVER_SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/src/main.cpp)
 
 find_package(Threads REQUIRED)
-target_link_libraries(http_server PRIVATE Threads::Threads)
+
+add_library(http_core STATIC ${SERVER_SOURCES})
+target_include_directories(http_core PUBLIC include)
+target_link_libraries(http_core PUBLIC Threads::Threads)
+
+add_executable(http_server src/main.cpp)
+target_link_libraries(http_server PRIVATE http_core)
+
+if(HTTP_SERVER_BUILD_TESTS)
+    enable_testing()
+
+    file(GLOB TEST_SOURCES CONFIGURE_DEPENDS tests/*.cpp)
+    add_executable(unit_tests ${TEST_SOURCES})
+    target_include_directories(unit_tests PRIVATE tests)
+    target_link_libraries(unit_tests PRIVATE http_core)
+
+    add_test(NAME unit_tests COMMAND unit_tests)
+endif()

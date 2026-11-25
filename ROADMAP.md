@@ -31,7 +31,7 @@ Development log of the server, one step at a time.
 - [x] 20. Graceful shutdown on SIGINT/SIGTERM
 
 ## Milestone 5 — Quality and polish
-- [ ] 21. Minimal test framework + request parser tests
+- [x] 21. Minimal test framework + request parser tests
 - [ ] 22. Router and URL-decoding tests
 - [ ] 23. JSON response helper + demo API endpoints
 - [ ] 24. Demo website in `public/`

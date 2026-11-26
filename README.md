@@ -86,6 +86,59 @@ Built-in demo routes:
 | GET    | `/users/:id/posts/:post_id` | Two path parameters    |
 | GET    | `/error`   | Throws, to demo the 500 error page  |
 | POST   | `/echo`    | Returns the request body unchanged  |
+| *      | `/api/...` | JSON to-do API, see [JSON API](#json-api) |
+
+## JSON API
+
+`json.hpp` provides `http::Json`, a small JSON value type (null, boolean,
+number, string, array, object) with a parser and a serializer, and
+`HttpResponse` has two helpers built on it:
+
+```cpp
+router.get("/api/user", [](const http::HttpRequest&) {
+    http::Json user = http::Json::object({{"id", 42}, {"name", "Ada"}});
+    user["tags"] = http::Json::array({"math", "engines"});
+    return http::HttpResponse::json(http::status::kOk, user);  // {"id":42,...}
+});
+
+http::HttpResponse::json_error(404, "no todo with id 7");
+// {"error":{"status":404,"message":"no todo with id 7"}}
+
+const http::Json body = http::Json::parse(request.body);       // throws JsonError
+body.at("title").as_string();
+```
+
+Objects keep insertion order, integers stay exact (`int64`), `dump(2)`
+pretty-prints, and parse errors name the byte offset
+(`invalid JSON at offset 9: unexpected end of input`). Nesting is limited
+to 64 levels.
+
+The demo server registers an in-memory to-do API (`demo_api.hpp`,
+`http::register_demo_api(router, store)`), shared safely by all worker
+threads:
+
+| Method | Path             | Description                                   |
+|--------|------------------|-----------------------------------------------|
+| GET    | `/api`           | Index of the endpoints (pretty-printed)       |
+| GET    | `/api/status`    | Server name, version, uptime, number of todos |
+| GET    | `/api/todos`     | All todos; `?done=true` or `?done=false` filters |
+| POST   | `/api/todos`     | Create from `{"title": "...", "done": false}` → `201` + `Location` |
+| GET    | `/api/todos/:id` | One todo                                      |
+| PATCH  | `/api/todos/:id` | Update `title` and/or `done`                  |
+| DELETE | `/api/todos/:id` | Delete → `204 No Content`                     |
+
+```bash
+curl -s localhost:8080/api/todos
+curl -si -X POST localhost:8080/api/todos -H 'Content-Type: application/json' -d '{"title":"Buy milk"}'
+curl -s -X PATCH localhost:8080/api/todos/3 -H 'Content-Type: application/json' -d '{"done":true}'
+curl -s -X DELETE localhost:8080/api/todos/3
+```
+
+Request bodies must be sent with `Content-Type: application/json`
+(otherwise `415`). Malformed JSON, wrong field types, empty titles and
+unknown fields get `400`, missing ids `404`, always as a JSON error body.
+The store starts with two sample items and lives only as long as the
+process.
 
 ## Static files
 
@@ -328,7 +381,7 @@ ctest --test-dir build             # same tests via CTest
 [  OK  ] parses a simple request line
 [  OK  ] rejects unsupported HTTP versions
 ...
-60 test(s), 60 passed, 0 failed (1 ms)
+85 test(s), 85 passed, 0 failed (2 ms)
 ```
 
 The suite is split by component:
@@ -338,6 +391,8 @@ The suite is split by component:
 | `tests/http_request_test.cpp` | request line and header parsing, `RequestReader` limits       |
 | `tests/router_test.cpp`       | exact and parameterised routes, 404/405, `Allow`, HEAD, fallback |
 | `tests/url_test.cpp`          | `url_decode`, `url_encode`, `parse_query`, query parameters   |
+| `tests/json_test.cpp`         | `Json` building, serializing, parsing errors, response helpers |
+| `tests/demo_api_test.cpp`     | `TodoStore` and the `/api` endpoints (CRUD, validation, 404s) |
 
 Writing a test:
 

@@ -36,6 +36,9 @@ public:
     Router& put(std::string path, Handler handler) {
         return add(Method::Put, std::move(path), std::move(handler));
     }
+    Router& patch(std::string path, Handler handler) {
+        return add(Method::Patch, std::move(path), std::move(handler));
+    }
     Router& del(std::string path, Handler handler) {
         return add(Method::Delete, std::move(path), std::move(handler));
     }

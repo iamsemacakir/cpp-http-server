@@ -6,6 +6,7 @@
 #include <utility>
 #include <vector>
 
+#include "json.hpp"
 #include "status.hpp"
 
 namespace http {
@@ -18,6 +19,14 @@ public:
     // Convenience factories for common content types.
     static HttpResponse text(int status, std::string body);
     static HttpResponse html(int status, std::string body);
+
+    // A JSON body with Content-Type application/json. `indent` is passed to
+    // Json::dump(): compact by default; a trailing newline is always added.
+    static HttpResponse json(int status, const Json& body, int indent = -1);
+
+    // A JSON error body: {"error":{"status":404,"message":"..."}}. The
+    // message defaults to the status code's reason phrase.
+    static HttpResponse json_error(int status, std::string message = {});
 
     // A server-generated error, e.g. error(404, "/missing"). The body is
     // plain text ("404 Not Found: /missing"), but the response is marked so

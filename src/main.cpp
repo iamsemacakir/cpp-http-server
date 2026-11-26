@@ -11,9 +11,11 @@
 #include "cli.hpp"
 #include "config.hpp"
 #include "connection.hpp"
+#include "demo_api.hpp"
 #include "error_pages.hpp"
 #include "http_request.hpp"
 #include "http_response.hpp"
+#include "json.hpp"
 #include "logger.hpp"
 #include "router.hpp"
 #include "signal_watcher.hpp"
@@ -61,7 +63,7 @@ http::ServerConfig load_configuration(const http::CliOptions& options,
     return config;
 }
 
-http::Router build_router(const http::StaticFiles& static_files) {
+http::Router build_router(const http::StaticFiles& static_files, http::TodoStore& todos) {
     using http::HttpRequest;
     using http::HttpResponse;
 
@@ -72,9 +74,7 @@ http::Router build_router(const http::StaticFiles& static_files) {
     });
 
     router.get("/health", [](const HttpRequest&) {
-        HttpResponse response(http::status::kOk);
-        response.set_body("{\"status\":\"ok\"}\n", "application/json");
-        return response;
+        return HttpResponse::json(http::status::kOk, http::Json::object({{"status", "ok"}}));
     });
 
     router.get("/request", [](const HttpRequest& request) {
@@ -124,6 +124,9 @@ http::Router build_router(const http::StaticFiles& static_files) {
                           request.header("Content-Type").value_or("application/octet-stream"));
         return response;
     });
+
+    // JSON API under /api (see demo_api.hpp).
+    http::register_demo_api(router, todos);
 
     router.fallback([&static_files](const HttpRequest& request) {
         return static_files.serve(request);
@@ -194,7 +197,10 @@ int main(int argc, char** argv) {
         http::log_debug("effective configuration (", config_source, "):\n", effective);
 
         const http::StaticFiles static_files(config.document_root);
-        const http::Router router = build_router(static_files);
+        http::TodoStore todos;
+        todos.create("Read the ROADMAP", true);
+        todos.create("Try the JSON API with curl");
+        const http::Router router = build_router(static_files, todos);
         const http::ErrorPages error_pages(config.error_pages);
         http::TcpServer server(config.host, config.port);
         server.set_client_timeout(config.client_timeout);

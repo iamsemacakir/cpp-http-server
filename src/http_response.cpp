@@ -47,6 +47,22 @@ HttpResponse HttpResponse::html(int status, std::string body) {
     return response;
 }
 
+HttpResponse HttpResponse::json(int status, const Json& body, int indent) {
+    HttpResponse response(status);
+    std::string text = body.dump(indent);
+    text += '\n';
+    response.set_body(std::move(text), "application/json");
+    return response;
+}
+
+HttpResponse HttpResponse::json_error(int status, std::string message) {
+    if (message.empty()) {
+        message = std::string(reason_phrase(status));
+    }
+    return json(status, Json::object({{"error", Json::object({{"status", status},
+                                                               {"message", std::move(message)}})}}));
+}
+
 HttpResponse HttpResponse::error(int status, std::string detail) {
     std::string body = std::to_string(status) + " " + std::string(reason_phrase(status));
     if (!detail.empty()) {

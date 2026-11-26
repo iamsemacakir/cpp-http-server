@@ -328,8 +328,16 @@ ctest --test-dir build             # same tests via CTest
 [  OK  ] parses a simple request line
 [  OK  ] rejects unsupported HTTP versions
 ...
-26 test(s), 26 passed, 0 failed (1 ms)
+60 test(s), 60 passed, 0 failed (1 ms)
 ```
+
+The suite is split by component:
+
+| File                          | Covers                                                        |
+|-------------------------------|---------------------------------------------------------------|
+| `tests/http_request_test.cpp` | request line and header parsing, `RequestReader` limits       |
+| `tests/router_test.cpp`       | exact and parameterised routes, 404/405, `Allow`, HEAD, fallback |
+| `tests/url_test.cpp`          | `url_decode`, `url_encode`, `parse_query`, query parameters   |
 
 Writing a test:
 

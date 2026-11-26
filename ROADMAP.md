@@ -32,7 +32,7 @@ Development log of the server, one step at a time.
 
 ## Milestone 5 — Quality and polish
 - [x] 21. Minimal test framework + request parser tests
-- [ ] 22. Router and URL-decoding tests
+- [x] 22. Router and URL-decoding tests
 - [ ] 23. JSON response helper + demo API endpoints
 - [ ] 24. Demo website in `public/`
 - [ ] 25. GitHub Actions CI (build + tests)

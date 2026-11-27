@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>To-do app · cpp-http-server</title>
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/css/style.css">
+  <script src="/js/common.js" defer></script>
+  <script src="/js/todos.js" defer></script>
+</head>
+<body>
+  <header class="site-header">
+    <div class="container">
+      <a class="brand" href="/"><img src="/favicon.svg" alt="">cpp-http-server</a>
+      <nav class="site-nav" aria-label="Main">
+        <a href="/">Home</a>
+        <a href="/todos/" aria-current="page">To-do app</a>
+        <a href="/playground/">Playground</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="container">
+    <section>
+      <h1>To-do app</h1>
+      <p class="hint">
+        A small client for the JSON API. Every action is a real request:
+        <code>POST /api/todos</code> to add, <code>PATCH /api/todos/:id</code> to
+        tick, <code>DELETE /api/todos/:id</code> to remove. The list lives in the
+        server's memory and is shared by everyone connected to it.
+      </p>
+
+      <form class="todo-form" id="todo-form">
+        <input type="text" id="todo-title" name="title" aria-label="New to-do" placeholder="What needs doing?" maxlength="200" autocomplete="off" required>
+        <button type="submit" class="primary">Add</button>
+      </form>
+
+      <div class="filters" role="group" aria-label="Filter">
+        <button type="button" data-filter="all" aria-pressed="true">All</button>
+        <button type="button" data-filter="false" aria-pressed="false">Open</button>
+        <button type="button" data-filter="true" aria-pressed="false">Done</button>
+        <button type="button" id="refresh">Refresh</button>
+      </div>
+
+      <ul class="todo-list" id="todo-list" aria-live="polite">
+        <li class="empty">Loading…</li>
+      </ul>
+      <p class="todo-meta" id="todo-meta"></p>
+      <p class="message" id="todo-message" role="status"></p>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="container">
+      <span id="server-status" class="pill">checking server…</span>
+      <span>Served from <code>public/todos/index.html</code></span>
+    </div>
+  </footer>
+</body>
+</html>

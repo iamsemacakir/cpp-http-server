@@ -2,17 +2,111 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>cpp-http-server</title>
+  <meta name="description" content="Demo website of a small HTTP/1.1 server written from scratch in C++17.">
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="/css/style.css">
+  <script src="/js/common.js" defer></script>
+  <script src="/js/home.js" defer></script>
 </head>
 <body>
-  <h1>It works!</h1>
-  <p>This page is a static file served from <code>public/</code> by cpp-http-server.</p>
-  <ul>
-    <li><a href="/hello">/hello</a></li>
-    <li><a href="/request?demo=1">/request</a></li>
-    <li><a href="/search?q=c%2B%2B">/search?q=c++</a></li>
-    <li><a href="/users/42">/users/42</a></li>
-  </ul>
+  <header class="site-header">
+    <div class="container">
+      <a class="brand" href="/"><img src="/favicon.svg" alt="">cpp-http-server</a>
+      <nav class="site-nav" aria-label="Main">
+        <a href="/" aria-current="page">Home</a>
+        <a href="/todos/">To-do app</a>
+        <a href="/playground/">Playground</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="container">
+    <section class="hero">
+      <h1>An HTTP/1.1 server, written from scratch in C++17</h1>
+      <p>
+        Every byte of this page, its stylesheet and its scripts was read from
+        <code>public/</code> and sent over a raw POSIX socket by the server you
+        are talking to right now. No frameworks, just the standard library.
+      </p>
+      <div class="actions">
+        <a class="button primary" href="/todos/">Open the to-do app</a>
+        <a class="button" href="/playground/">Send your own requests</a>
+      </div>
+    </section>
+
+    <section aria-labelledby="live-heading">
+      <h2 id="live-heading">Live from the server</h2>
+      <div class="stats">
+        <div class="card stat"><span class="value" id="stat-uptime">–</span><span class="label">uptime</span></div>
+        <div class="card stat"><span class="value" id="stat-todos">–</span><span class="label">todos in memory</span></div>
+        <div class="card stat"><span class="value" id="stat-latency">–</span><span class="label">round trip to <code>/health</code></span></div>
+        <div class="card stat"><span class="value" id="stat-version">–</span><span class="label">version</span></div>
+      </div>
+    </section>
+
+    <section aria-labelledby="features-heading">
+      <h2 id="features-heading">What is inside</h2>
+      <div class="grid">
+        <div class="card">
+          <h3>Request parser</h3>
+          <p>Request line, headers and <code>Content-Length</code> bodies, with size limits and <code>400</code>/<code>413</code> on bad input.</p>
+        </div>
+        <div class="card">
+          <h3>Router</h3>
+          <p>Exact and parameterised paths like <code>/users/:id</code>, query strings, automatic <code>HEAD</code> and <code>405</code> with <code>Allow</code>.</p>
+        </div>
+        <div class="card">
+          <h3>Static files</h3>
+          <p>MIME types from file extensions, directory index pages and protection against <code>../</code> path traversal.</p>
+        </div>
+        <div class="card">
+          <h3>Thread pool</h3>
+          <p>Connections run on a fixed pool of workers, so one slow client never blocks the others.</p>
+        </div>
+        <div class="card">
+          <h3>Keep-alive</h3>
+          <p>This page and its assets share one TCP connection; pipelined requests are answered in order.</p>
+        </div>
+        <div class="card">
+          <h3>Graceful shutdown</h3>
+          <p><kbd>Ctrl+C</kbd> stops accepting new clients and lets in-flight requests finish before exiting.</p>
+        </div>
+      </div>
+    </section>
+
+    <section aria-labelledby="endpoints-heading">
+      <h2 id="endpoints-heading">JSON API</h2>
+      <p class="hint">Fetched from <a href="/api"><code>GET /api</code></a> when this page loaded.</p>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Endpoint</th><th>Description</th></tr></thead>
+          <tbody id="endpoints"><tr><td colspan="2">Loading…</td></tr></tbody>
+        </table>
+      </div>
+    </section>
+
+    <section aria-labelledby="try-heading">
+      <h2 id="try-heading">Try it from a terminal</h2>
+      <pre><code>curl -i http://localhost:8080/hello
+curl -s http://localhost:8080/api/todos
+curl -si -X POST http://localhost:8080/api/todos \
+     -H 'Content-Type: application/json' -d '{"title":"Learn sockets"}'
+curl -v http://localhost:8080/hello http://localhost:8080/health   # one connection</code></pre>
+      <p class="hint">
+        More routes: <a href="/hello">/hello</a>, <a href="/request?demo=1">/request</a>,
+        <a href="/search?q=c%2B%2B">/search?q=c++</a>, <a href="/users/42">/users/42</a>,
+        <a href="/does-not-exist">a missing page</a> and <a href="/error">a server error</a>.
+      </p>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="container">
+      <span id="server-status" class="pill">checking server…</span>
+      <span>Served from <code>public/</code> · <a href="https://github.com/iamsemacakir/cpp-http-server">source on GitHub</a></span>
+    </div>
+  </footer>
 </body>
 </html>

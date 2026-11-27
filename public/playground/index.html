@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Playground · cpp-http-server</title>
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/css/style.css">
+  <script src="/js/common.js" defer></script>
+  <script src="/js/playground.js" defer></script>
+</head>
+<body>
+  <header class="site-header">
+    <div class="container">
+      <a class="brand" href="/"><img src="/favicon.svg" alt="">cpp-http-server</a>
+      <nav class="site-nav" aria-label="Main">
+        <a href="/">Home</a>
+        <a href="/todos/">To-do app</a>
+        <a href="/playground/" aria-current="page">Playground</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="container">
+    <section>
+      <h1>Request playground</h1>
+      <p class="hint">
+        Send any request to this server and look at the raw status, headers and
+        body that come back, including errors such as <code>404</code>,
+        <code>405</code> or <code>415</code>.
+      </p>
+
+      <div class="presets" id="presets" aria-label="Examples"></div>
+
+      <form id="request-form">
+        <div class="request-line">
+          <div>
+            <label for="method">Method</label>
+            <select id="method">
+              <option>GET</option>
+              <option>HEAD</option>
+              <option>POST</option>
+              <option>PATCH</option>
+              <option>PUT</option>
+              <option>DELETE</option>
+            </select>
+          </div>
+          <div>
+            <label for="path">Path</label>
+            <input type="text" id="path" value="/api/status" autocomplete="off" spellcheck="false" required>
+          </div>
+          <div>
+            <label>&nbsp;</label>
+            <button type="submit" class="primary" id="send">Send</button>
+          </div>
+        </div>
+        <div>
+          <label for="body">Body (<code>{…}</code> or <code>[…]</code> is sent as <code>application/json</code>, anything else as <code>text/plain</code>)</label>
+          <textarea id="body" spellcheck="false" placeholder='{"title": "Write tests"}'></textarea>
+        </div>
+      </form>
+    </section>
+
+    <section aria-labelledby="response-heading" id="response" hidden>
+      <div class="response-head">
+        <h2 id="response-heading">Response</h2>
+        <span class="status-code" id="response-status"></span>
+        <span class="timing" id="response-timing"></span>
+      </div>
+      <div class="response-grid">
+        <div>
+          <h3>Headers</h3>
+          <pre><code id="response-headers"></code></pre>
+        </div>
+        <div>
+          <h3>Body</h3>
+          <pre><code id="response-body"></code></pre>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="container">
+      <span id="server-status" class="pill">checking server…</span>
+      <span>Served from <code>public/playground/index.html</code></span>
+    </div>
+  </footer>
+</body>
+</html>

@@ -40,6 +40,36 @@ Settings are read from `server.conf` when it exists (see
 
 Then open http://localhost:8080 or run `curl -i http://localhost:8080/`.
 
+## Demo website
+
+`public/` holds a small website that the server ships with, built only from
+static HTML, CSS and plain JavaScript that talk to the server's own routes:
+
+| Page                | What it shows                                                     |
+|---------------------|-------------------------------------------------------------------|
+| `/`                 | Live uptime, to-do count and `/health` round-trip time, plus the endpoint list read from `GET /api` |
+| `/todos/`           | A to-do app on top of the [JSON API](#json-api): add, tick, filter and delete items |
+| `/playground/`      | Send any method, path and body to the server and inspect the raw status, headers and body |
+
+```text
+public/
+├── index.html            home page
+├── favicon.svg
+├── css/style.css         shared styles (light and dark mode)
+├── js/common.js          JSON fetch helper + server status in the footer
+├── js/home.js
+├── js/todos.js
+├── js/playground.js
+├── todos/index.html      served for /todos/ (and /todos redirects there)
+└── playground/index.html
+```
+
+The site exercises most of the server at once: MIME types for `.html`,
+`.css`, `.js` and `.svg`, directory index pages and trailing-slash
+redirects, keep-alive (the page and its assets share connections), JSON
+requests and error responses. Point `--root` at another directory to serve
+your own site instead.
+
 ## Usage
 
 Routes are registered with a small, fluent API:

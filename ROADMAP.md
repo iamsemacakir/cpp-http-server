@@ -34,6 +34,6 @@ Development log of the server, one step at a time.
 - [x] 21. Minimal test framework + request parser tests
 - [x] 22. Router and URL-decoding tests
 - [x] 23. JSON response helper + demo API endpoints
-- [ ] 24. Demo website in `public/`
+- [x] 24. Demo website in `public/`
 - [ ] 25. GitHub Actions CI (build + tests)
 - [ ] 26. Architecture docs and final README polish

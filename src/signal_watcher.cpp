@@ -1,6 +1,7 @@
 #include "signal_watcher.hpp"
 
 #include <cerrno>
+#include <cstddef>
 #include <cstdlib>
 #include <cstring>
 #include <pthread.h>
@@ -14,6 +15,12 @@
 
 namespace http {
 
+namespace {
+
+void ignore_delivery(int /*signal*/) {}
+
+}  // namespace
+
 SignalWatcher::SignalWatcher(std::initializer_list<int> signals, Callback on_signal)
     : signals_(signals), on_signal_(std::move(on_signal)) {
     if (signals_.empty()) {
@@ -23,13 +30,33 @@ SignalWatcher::SignalWatcher(std::initializer_list<int> signals, Callback on_sig
     for (const int signal : signals_) {
         sigaddset(&watched_, signal);
     }
+    // A process can inherit SIG_IGN for a signal (e.g. SIGINT for background
+    // jobs of a non-interactive shell). Some systems, macOS among them,
+    // discard ignored signals even while they are blocked, so sigwait() would
+    // never see them. Installing a handler makes them pending as usual; it
+    // never runs because the signals stay blocked.
+    previous_actions_.resize(signals_.size());
+    struct sigaction action {};
+    action.sa_handler = ignore_delivery;
+    sigemptyset(&action.sa_mask);
+    for (std::size_t i = 0; i < signals_.size(); ++i) {
+        if (::sigaction(signals_[i], &action, &previous_actions_[i]) != 0) {
+            const int error = errno;
+            for (std::size_t j = 0; j < i; ++j) {
+                ::sigaction(signals_[j], &previous_actions_[j], nullptr);
+            }
+            throw std::system_error(error, std::generic_category(), "sigaction");
+        }
+    }
     if (const int error = pthread_sigmask(SIG_BLOCK, &watched_, &previous_mask_); error != 0) {
+        restore_actions();
         throw std::system_error(error, std::generic_category(), "pthread_sigmask");
     }
     try {
         thread_ = std::thread(&SignalWatcher::run, this);
     } catch (...) {
         pthread_sigmask(SIG_SETMASK, &previous_mask_, nullptr);
+        restore_actions();
         throw;
     }
 }
@@ -41,6 +68,13 @@ SignalWatcher::~SignalWatcher() {
     pthread_kill(thread_.native_handle(), signals_.front());
     thread_.join();
     pthread_sigmask(SIG_SETMASK, &previous_mask_, nullptr);
+    restore_actions();
+}
+
+void SignalWatcher::restore_actions() noexcept {
+    for (std::size_t i = 0; i < previous_actions_.size(); ++i) {
+        ::sigaction(signals_[i], &previous_actions_[i], nullptr);
+    }
 }
 
 void SignalWatcher::run() {

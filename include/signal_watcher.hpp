@@ -35,11 +35,14 @@ public:
 
 private:
     void run();
+    void restore_actions() noexcept;
 
     std::vector<int> signals_;
     Callback on_signal_;
     sigset_t watched_{};
     sigset_t previous_mask_{};
+    // Dispositions replaced in the constructor, restored in the destructor.
+    std::vector<struct sigaction> previous_actions_;
     std::atomic<bool> done_{false};
     std::atomic<int> received_{0};
     std::thread thread_;

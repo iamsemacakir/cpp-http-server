@@ -9,13 +9,20 @@ if(NOT CMAKE_BUILD_TYPE)
     set(CMAKE_BUILD_TYPE Debug)
 endif()
 
+option(HTTP_SERVER_BUILD_TESTS "Build the unit tests" ON)
+option(HTTP_SERVER_WARNINGS_AS_ERRORS "Treat compiler warnings as errors" OFF)
+
 if(MSVC)
     add_compile_options(/W4)
+    if(HTTP_SERVER_WARNINGS_AS_ERRORS)
+        add_compile_options(/WX)
+    endif()
 else()
     add_compile_options(-Wall -Wextra -Wpedantic)
+    if(HTTP_SERVER_WARNINGS_AS_ERRORS)
+        add_compile_options(-Werror)
+    endif()
 endif()
-
-option(HTTP_SERVER_BUILD_TESTS "Build the unit tests" ON)
 
 # Everything except main.cpp goes into a library, so the server executable
 # and the unit tests share the same compiled code.

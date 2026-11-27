@@ -1,5 +1,7 @@
 # cpp-http-server
 
+[![CI](https://github.com/iamsemacakir/cpp-http-server/actions/workflows/ci.yml/badge.svg)](https://github.com/iamsemacakir/cpp-http-server/actions/workflows/ci.yml)
+
 A small HTTP/1.1 web server written **from scratch** in modern C++ (C++17) —
 no frameworks, just POSIX sockets and the standard library.
 
@@ -446,12 +448,41 @@ fails. Any `tests/*.cpp` file is picked up automatically; pass
 The server code is compiled once into the `http_core` static library, which
 both `http_server` and `unit_tests` link against.
 
+### Smoke test
+
+`scripts/smoke_test.sh` checks the built server end to end: it starts
+`http_server` on a local port, sends real requests with `curl` (static files,
+routes with parameters, query strings, the JSON API, 404/405, a path-traversal
+attempt) and finally stops it with `SIGINT`, expecting a clean exit.
+
+```bash
+scripts/smoke_test.sh                          # uses ./build/http_server on port 18080
+scripts/smoke_test.sh ./build/http_server 9000 # explicit binary and port
+```
+
+### Continuous integration
+
+Every push to `main` or a `feature/**` branch, and every pull request, runs
+the [CI workflow](.github/workflows/ci.yml) on GitHub Actions. It builds the
+project with GCC and Clang (Debug and Release) on Ubuntu and with Apple Clang
+on macOS, then runs the unit tests through CTest and the smoke test.
+
+CI configures CMake with `-DHTTP_SERVER_WARNINGS_AS_ERRORS=ON`, so any
+compiler warning fails the build. Use the same flag locally to catch warnings
+before pushing:
+
+```bash
+cmake -S . -B build -DHTTP_SERVER_WARNINGS_AS_ERRORS=ON && cmake --build build
+```
+
 ## Project structure
 
 ```
 include/   public headers
 src/       implementation
 tests/     unit tests and the test framework
+scripts/   helper scripts (end-to-end smoke test)
+.github/   GitHub Actions CI workflow
 public/    static files served by the demo
 errors/    HTML templates for error pages
 server.conf  default configuration

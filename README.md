@@ -9,18 +9,50 @@ The goal is to understand how the web works under the hood: TCP sockets,
 parsing raw HTTP requests, routing, serving static files, and handling many
 clients concurrently.
 
-## Features (planned)
+## Features
 
-- TCP socket server built on POSIX sockets (RAII wrappers)
-- HTTP/1.1 request parser (request line, headers, body)
-- Response builder with proper status codes
-- Router with path parameters (`/users/:id`) and query strings
-- Static file serving with MIME types and path-traversal protection
-- Thread pool for concurrent connections, keep-alive
-- Config file, logging, graceful shutdown on SIGINT/SIGTERM
-- Unit tests and CI
+- TCP server on POSIX sockets with move-only RAII wrappers
+- HTTP/1.1 request parser (request line, headers, `Content-Length` bodies)
+  with size limits, plus a response builder with a full status code table
+- Router with path parameters (`/users/:id`), percent-decoded query
+  strings, automatic `HEAD`, `404` and `405` + `Allow`
+- Static file serving with MIME types, directory index pages and
+  path-traversal protection
+- HTML error page templates for browsers, plain text for everyone else
+- Built-in JSON value type and a demo to-do REST API
+- Thread pool, keep-alive with pipelining, per-client timeouts
+- Config file, command-line options, levelled access log
+- Graceful shutdown on SIGINT/SIGTERM
+- Unit tests, an end-to-end smoke test and GitHub Actions CI
+- No dependencies beyond a C++17 compiler and CMake
 
-See [ROADMAP.md](ROADMAP.md) for progress.
+How it all fits together is described in
+[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md): the components, the life of a
+request, the threading model, shutdown and the design decisions. The
+development history, one step per feature, is in [ROADMAP.md](ROADMAP.md).
+
+## Quick start
+
+```bash
+git clone https://github.com/iamsemacakir/cpp-http-server.git
+cd cpp-http-server
+cmake -S . -B build && cmake --build build
+./build/http_server
+```
+
+```text
+2026-11-28 10:15:02.114 [INFO ] cpp-http-server v1.0.0 listening on http://0.0.0.0:8080 (config: server.conf, ...)
+```
+
+Open http://localhost:8080 for the demo website, or try a few routes:
+
+```bash
+curl -i localhost:8080/hello
+curl -s localhost:8080/users/42
+curl -s localhost:8080/api/todos
+```
+
+Stop it with `Ctrl+C`.
 
 ## Build
 
@@ -477,16 +509,45 @@ cmake -S . -B build -DHTTP_SERVER_WARNINGS_AS_ERRORS=ON && cmake --build build
 
 ## Project structure
 
+```text
+include/      public headers (namespace http)
+src/          implementation; main.cpp wires up the demo server
+tests/        unit tests and the test framework
+scripts/      helper scripts (end-to-end smoke test)
+docs/         architecture documentation
+.github/      GitHub Actions CI workflow
+public/       static files served by the demo
+errors/       HTML templates for error pages
+server.conf   default configuration
 ```
-include/   public headers
-src/       implementation
-tests/     unit tests and the test framework
-scripts/   helper scripts (end-to-end smoke test)
-.github/   GitHub Actions CI workflow
-public/    static files served by the demo
-errors/    HTML templates for error pages
-server.conf  default configuration
-```
+
+| Component        | Header                  | Purpose                                         |
+|------------------|-------------------------|-------------------------------------------------|
+| Socket           | `socket.hpp`            | RAII wrapper over a POSIX socket                |
+| TcpServer        | `tcp_server.hpp`        | Listen and accept loop                          |
+| ThreadPool       | `thread_pool.hpp`       | Fixed worker threads with a task queue          |
+| SignalWatcher    | `signal_watcher.hpp`    | SIGINT/SIGTERM on a dedicated thread            |
+| StopSignal       | `stop_signal.hpp`       | Pollable stop flag for graceful shutdown        |
+| RequestReader    | `request_reader.hpp`    | Reads whole requests, keeps pipelined bytes     |
+| HttpRequest      | `http_request.hpp`      | Request model and parser                        |
+| HttpResponse     | `http_response.hpp`     | Response builder and serializer                 |
+| serve_connection | `connection.hpp`        | Keep-alive loop for one connection              |
+| Router           | `router.hpp`            | Method + path routing with parameters           |
+| StaticFiles      | `static_files.hpp`      | Safe file serving from the document root        |
+| ErrorPages       | `error_pages.hpp`       | HTML error page templates                       |
+| Json             | `json.hpp`              | JSON value, parser and serializer               |
+| ServerConfig     | `config.hpp`, `cli.hpp` | Config file and command line                    |
+| Logger           | `logger.hpp`            | Thread-safe levelled logging                    |
+
+See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for how they interact.
+
+## Limitations
+
+The server is a learning project, not a production web server: it has no
+TLS (put it behind a reverse proxy for HTTPS), no chunked transfer
+encoding, no IPv6, no caching or range requests, and it uses one worker
+thread per open connection. See
+[Limitations](docs/ARCHITECTURE.md#limitations) for details.
 
 ## License
 

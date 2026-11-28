@@ -36,4 +36,4 @@ Development log of the server, one step at a time.
 - [x] 23. JSON response helper + demo API endpoints
 - [x] 24. Demo website in `public/`
 - [x] 25. GitHub Actions CI (build + tests)
-- [ ] 26. Architecture docs and final README polish
+- [x] 26. Architecture docs and final README polish

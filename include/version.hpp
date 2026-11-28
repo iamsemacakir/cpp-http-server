@@ -3,6 +3,6 @@
 namespace http {
 
 constexpr const char* kServerName = "cpp-http-server";
-constexpr const char* kServerVersion = "0.1.0";
+constexpr const char* kServerVersion = "1.0.0";
 
 } // namespace http
